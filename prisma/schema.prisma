@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"   // Trocaremos para "postgresql" quando migrar ao Neon
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

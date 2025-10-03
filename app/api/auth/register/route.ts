@@ -12,15 +12,14 @@ const RegisterSchema = z.object({
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const parse = RegisterSchema.safeParse(body);
-  if (!parse.success) {
-    return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
-  }
-  const { name, email, password } = parse.data;
+  if (!parse.success) return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
+
+  const name = parse.data.name.trim();
+  const email = parse.data.email.trim().toLowerCase();
+  const password = parse.data.password;
 
   const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) {
-    return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
-  }
+  if (exists) return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
 
   const passwordHash = await hashPassword(password);
   await prisma.user.create({ data: { name, email, passwordHash } });

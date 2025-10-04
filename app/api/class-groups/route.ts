@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  const items = await prisma.classGroup.findMany({ orderBy: { createdAt: "desc" } });
+  return NextResponse.json(items);
+}
 
 export async function POST(req: Request) {
-  const { name, description } = await req.json().catch(()=>({}));
-  if (!name) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
-  const id = crypto.randomUUID();
-  return NextResponse.json({ ok: true, id, name, description: description || "" }, { status: 201 });
+  const { name } = await req.json().catch(() => ({}));
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return NextResponse.json({ error: "name required" }, { status: 400 });
+
+  const created = await prisma.classGroup.create({ data: { name: trimmed } });
+  return NextResponse.json(created, { status: 201 });
 }

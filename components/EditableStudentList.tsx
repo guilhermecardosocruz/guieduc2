@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-export type Student = { id: string; name: string };
+export type Student = { id: string; name: string; cpf?: string | null; contact?: string | null };
 
 function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 
@@ -49,7 +49,6 @@ export default function EditableStudentList({ classId, students, setStudents, pr
   }
 
   function onMouseDownLong(s: Student) {
-    // toque longo / clique longo (~500ms)
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => openEdit(s), 500);
   }
@@ -104,7 +103,6 @@ export default function EditableStudentList({ classId, students, setStudents, pr
         ))}
       </ul>
 
-      {/* Modal nativo */}
       <dialog id="student-edit-dialog" className="rounded-2xl p-0 backdrop:bg-black/30">
         <form method="dialog" className="w-[90vw] max-w-md rounded-2xl border border-gray-200 bg-white p-4">
           <h3 className="mb-3 text-base font-semibold">Editar aluno</h3>

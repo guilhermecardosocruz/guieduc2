@@ -53,12 +53,10 @@ model ClassGroupOnClass {
 
 // === GUIEDUC: Alunos, Chamadas e Presenças ===
 model Student {
-  id      String  @id @default(uuid())
+  id      String @id @default(uuid())
   name    String
-  cpf     String?
-  contact String?
   classId String
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   attendances Attendance[]
 

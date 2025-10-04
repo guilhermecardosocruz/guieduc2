@@ -87,18 +87,47 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
     if (!title.trim()) { alert("Informe o nome da aula."); return; }
     setSaving(true);
     try {
-      const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
-      const rec: CallRecord = {
-        id: crypto.randomUUID(),
-        classId,
+      const payload = {
         title: title.trim(),
         content: content.trim() || undefined,
-        createdAt: new Date().toISOString(),
         attendance: ordered.map(s => ({ studentId: s.id, present: !!presentMap[s.id] })),
       };
-      localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...calls]));
-      alert("Chamada salva!");
-      window.location.href = `/classes/${classId}/chamadas`;
+      // tenta API primeiro
+      fetch(`/api/classes/${classId}/chamadas`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error("api");
+        const created = await res.json(); // { id, title, createdAt, ... }
+        // sincroniza local também
+        const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
+        const rec: CallRecord = {
+          id: created.id ?? crypto.randomUUID(),
+          classId,
+          title: created.title ?? payload.title,
+          content: created.content ?? payload.content,
+          createdAt: created.createdAt ?? new Date().toISOString(),
+          attendance: payload.attendance,
+        };
+        localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...calls]));
+        // navega para a lista
+        window.location.href = `/classes/${classId}/chamadas`;
+      }).catch(() => {
+        // offline: cai pro local
+        const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
+        const rec: CallRecord = {
+          id: crypto.randomUUID(),
+          classId,
+          title: payload.title,
+          content: payload.content,
+          createdAt: new Date().toISOString(),
+          attendance: payload.attendance,
+        };
+        localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...calls]));
+        window.location.href = `/classes/${classId}/chamadas`;
+      });
     } finally {
       setSaving(false);
     }
@@ -146,7 +175,7 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
             className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60">
             {saving ? "Salvando..." : "Salvar chamada"}
           </button>
-          <button type="button" onClick={()=>addStudent()}
+          <button type="button" onClick={addStudent}
             className="rounded-2xl border px-4 py-3 text-sm transition hover:border-blue-500 hover:text-blue-600">
             Adicionar aluno
           </button>

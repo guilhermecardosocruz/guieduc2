@@ -1,4 +1,4 @@
-import "../styles/globals.css"; // ajuste o caminho se necessário
+import "../../styles/globals.css"; // <- caminho corrigido
 import Topbar from "@/components/Topbar";
 
 export default function AppGroupLayout({ children }: { children: React.ReactNode }) {

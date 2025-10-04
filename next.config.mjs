@@ -2,7 +2,6 @@ import withPWA from 'next-pwa';
 
 const runtimeCaching = [
   {
-    // API de leitura (ajuste os caminhos quando criar suas rotas reais)
     urlPattern: ({ url }) => /\/api\/(classes|lessons|attendance)\b/.test(url.pathname),
     handler: 'NetworkFirst',
     options: {
@@ -12,7 +11,6 @@ const runtimeCaching = [
     }
   },
   {
-    // assets estáticos
     urlPattern: ({ url }) => /\.(?:js|css|woff2)$/.test(url.pathname),
     handler: 'StaleWhileRevalidate',
     options: { cacheName: 'assets' }
@@ -32,6 +30,6 @@ export default withPWA({
     register: true,
     skipWaiting: false,
     buildExcludes: [/middleware-manifest\.json$/],
-    runtimeCaching
+    runtimeCaching   // << SOMENTE AQUI, sem "...runtimeCaching" no topo
   }
 });

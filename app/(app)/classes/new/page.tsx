@@ -19,18 +19,16 @@ async function apiList(): Promise<ClassItem[]> {
 
 async function apiCreate(name: string): Promise<ClassItem> {
   const optimistic: ClassItem = { id: crypto.randomUUID(), name, createdAt: new Date().toISOString() };
-
   try {
     const res = await fetch("/api/classes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      credentials: "include", // garante envio de cookies de sessão
+      credentials: "include",
       body: JSON.stringify({ name }),
     });
     if (!res.ok) throw new Error("API create failed");
     return await res.json();
   } catch {
-    // fallback local
     const current = (() => {
       try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
     })() as ClassItem[];
@@ -58,16 +56,13 @@ export default function NewClassPage() {
     return () => { alive = false; };
   }, []);
 
-  async function handleCreate(ev?: React.SyntheticEvent) {
-    ev?.preventDefault();
-    ev?.stopPropagation();
+  async function handleCreate(e?: React.SyntheticEvent) {
+    e?.preventDefault(); e?.stopPropagation();
     if (!canCreate) return;
-
     setBusy(true);
     const trimmed = name.trim();
     setName("");
 
-    // otimista: insere já na lista, sem navegar
     const temp: ClassItem = { id: "tmp-" + crypto.randomUUID(), name: trimmed, createdAt: new Date().toISOString() };
     setList(prev => [temp, ...prev]);
 
@@ -79,7 +74,6 @@ export default function NewClassPage() {
     }
   }
 
-  // persiste fallback local
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch {}
   }, [list]);
@@ -88,11 +82,10 @@ export default function NewClassPage() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">Criar Turma</h1>
-        <p className="text-sm text-gray-600">Crie e veja abaixo imediatamente. Cartões são clicáveis, com botões de ações.</p>
+        <p className="text-sm text-gray-600">Adicione e veja abaixo. O cartão é fininho e clicável.</p>
       </header>
 
-      {/* Sem <form> tradicional para evitar qualquer submissão/navegação */}
-      <div className="mb-8 flex gap-3">
+      <div className="mb-6 flex gap-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -110,31 +103,23 @@ export default function NewClassPage() {
         </button>
       </div>
 
-      <section className="space-y-3">
+      <ul className="divide-y rounded-2xl border border-gray-200 bg-white">
         {list.length === 0 ? (
-          <p className="text-sm text-gray-500">Nenhuma turma criada ainda.</p>
+          <li className="p-4 text-sm text-gray-500">Nenhuma turma criada ainda.</li>
         ) : (
           list.map((t) => (
-            <article key={t.id} className="group rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-              <Link href={`/classes/${t.id}`} className="block">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-medium">{t.name}</h2>
-                  <span className="text-xs text-gray-500">{new Date(t.createdAt).toLocaleString()}</span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Abrir turma</p>
+            <li key={t.id} className="p-0">
+              <Link
+                href={`/classes/${t.id}`}
+                className="block px-4 py-3 text-sm hover:bg-gray-50"
+                title="Abrir turma"
+              >
+                {t.name}
               </Link>
-              <div className="mt-3 flex gap-2">
-                <Link href={`/classes/${t.id}/chamadas`} className="rounded-xl border px-3 py-1 text-sm transition hover:border-blue-500 hover:text-blue-600">
-                  Chamadas
-                </Link>
-                <Link href={`/classes/${t.id}/conteudos`} className="rounded-xl border px-3 py-1 text-sm transition hover:border-blue-500 hover:text-blue-600">
-                  Conteúdos
-                </Link>
-              </div>
-            </article>
+            </li>
           ))
         )}
-      </section>
+      </ul>
     </main>
   );
 }

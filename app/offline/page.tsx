@@ -1,9 +1,22 @@
-export default function Offline() {
+export const metadata = { title: "Sem conexão • GUIEDUC2" };
+
+export default function OfflinePage() {
   return (
-    <div className="min-h-dvh flex items-center justify-center p-6">
-      <div className="card text-center">
-        <h1 className="form-title">Você está offline</h1>
-        <p className="form-subtitle">Algumas funções podem não estar disponíveis. Tente novamente quando a conexão voltar.</p>
+    <div className="min-h-dvh grid place-items-center bg-neutral-900 text-white">
+      <div className="text-center space-y-5">
+        <div className="mx-auto h-20 w-20 rounded-2xl" style={{ backgroundColor: "#0A66FF" }} />
+        <h1 className="text-3xl font-bold">Você está off-line</h1>
+        <p className="text-white/80">
+          Sem internet no momento. Alguns dados locais continuam disponíveis.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            className="btn-primary !bg-white !text-black"
+            onClick={() => location.reload()}
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     </div>
   );

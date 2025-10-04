@@ -24,7 +24,10 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  function fakeLogout(){ location.href="/login"; }
+  async function doLogout(){
+    await fetch('/api/auth/logout', { method:'POST' });
+    location.href = '/login';
+  }
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -33,7 +36,7 @@ export default function DashboardPage() {
           <Brand />
           <div className="flex items-center gap-3 text-sm text-gray-500">
             {source !== "none" && <span>⚡ {source === "server" ? "Dados do servidor" : "Dados locais"}</span>}
-            <button onClick={fakeLogout} className="btn-primary">Sair</button>
+            <button onClick={doLogout} className="btn-primary">Sair</button>
           </div>
         </div>
       </header>

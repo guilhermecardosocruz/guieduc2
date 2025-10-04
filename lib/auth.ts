@@ -1,30 +1,25 @@
 import { SignJWT, jwtVerify } from 'jose';
 
-const alg = 'HS256';
-const cookieName = 'auth';
+const COOKIE = 'guieduc_session';
+export function authCookieName(){ return COOKIE; }
 
 function getSecret() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error('AUTH_SECRET não definido');
-  return new TextEncoder().encode(secret);
+  const s = process.env.AUTH_SECRET;
+  if (!s) throw new Error('AUTH_SECRET ausente');
+  return new TextEncoder().encode(s);
 }
 
-export async function signSession(payload: Record<string, unknown>, maxAgeSeconds = 60 * 60 * 24 * 7) {
-  const secret = getSecret();
-  const now = Math.floor(Date.now() / 1000);
+export type SessionPayload = { sub: string; email: string; name: string };
+
+export async function signSession(payload: SessionPayload, exp: string = '30d') {
   return await new SignJWT(payload)
-    .setProtectedHeader({ alg })
-    .setIssuedAt(now)
-    .setExpirationTime(now + maxAgeSeconds)
-    .sign(secret);
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime(exp)      // sessão dura 30 dias
+    .sign(getSecret());
 }
 
 export async function verifySession(token: string) {
-  const secret = getSecret();
-  const { payload } = await jwtVerify(token, secret);
-  return payload;
-}
-
-export function authCookieName() {
-  return cookieName;
+  const { payload } = await jwtVerify(token, getSecret());
+  return payload as SessionPayload;
 }

@@ -23,12 +23,14 @@ export async function POST(req: Request) {
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
 
-  const token = await signSession({ sub: user.id, email: user.email, name: user.name });
+  const token = await signSession({ sub: user.id, email: user.email, name: user.name }, '30d');
   const res = NextResponse.json({ ok: true }, { status: 200 });
   res.cookies.set(authCookieName(), token, {
-    httpOnly: true, sameSite: 'lax',
+    httpOnly: true,
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    path: '/', maxAge: 60 * 60 * 24 * 7
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 dias
   });
   return res;
 }

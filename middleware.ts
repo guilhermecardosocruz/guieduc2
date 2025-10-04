@@ -1,32 +1,38 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { verifySession, authCookieName } from './lib/auth';
+import { NextResponse, type NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
+
+const COOKIE = 'guieduc_session';
+const AUTH_ROUTES = ['/login', '/register', '/recover'];
+
+function getSecret() {
+  const s = process.env.AUTH_SECRET;
+  return new TextEncoder().encode(s || 'dev-secret');
+}
 
 export async function middleware(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
+  const { pathname } = req.nextUrl;
+  const token = req.cookies.get(COOKIE)?.value;
 
-  // Liberar rotas públicas e assets
-  const publicPaths = ['/', '/login', '/register', '/recover', '/offline', '/manifest.json', '/sw.js'];
-  if (publicPaths.includes(pathname) || pathname.startsWith('/icons/') || pathname.startsWith('/api/auth')) {
-    return NextResponse.next();
+  // tenta validar token (se existir)
+  let authenticated = false;
+  if (token) {
+    try { await jwtVerify(token, getSecret()); authenticated = true; } catch {}
   }
 
-  // Proteger tudo sob /dashboard (e outras futuras rotas de app)
-  if (pathname.startsWith('/dashboard')) {
-    const cookie = req.cookies.get(authCookieName());
-    if (!cookie?.value) {
-      const url = new URL('/login', req.url);
-      url.searchParams.set('from', pathname);
-      return NextResponse.redirect(url);
-    }
-    try {
-      await verifySession(cookie.value);
-      return NextResponse.next();
-    } catch {
-      const url = new URL('/login', req.url);
-      url.searchParams.set('from', pathname);
-      return NextResponse.redirect(url);
-    }
+  // se logado, não deixar voltar para telas de auth
+  if (authenticated && AUTH_ROUTES.includes(pathname)) {
+    const url = req.nextUrl.clone(); url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
+
+  // se não logado e tentando acessar área protegida
+  const needsAuth =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/(app)');
+
+  if (!authenticated && needsAuth) {
+    const url = req.nextUrl.clone(); url.pathname = '/login';
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
@@ -34,7 +40,10 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    // adicione aqui mais rotas protegidas no futuro
+    '/login',
+    '/register',
+    '/recover',
+    '/dashboard',
+    '/(app)/(.*)',
   ]
 };

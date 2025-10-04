@@ -15,3 +15,36 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// === GUIEDUC: Turmas e Grupos ===
+model Class {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento opcional com grupos via tabela de junção
+  groups ClassGroupOnClass[]
+}
+
+model ClassGroup {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes ClassGroupOnClass[]
+}
+
+// Tabela de junção N:N entre Class e ClassGroup
+model ClassGroupOnClass {
+  classId  String
+  groupId  String
+  assignedAt DateTime @default(now())
+
+  class Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  group ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([classId, groupId])
+  @@index([groupId])
+}

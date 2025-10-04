@@ -94,7 +94,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
                 title="Editar chamada"
               >
                 <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border px-2 text-xs text-gray-700">
-                  #{c.number ?? "—"}
+                  {c.number ?? "—"}
                 </span>
                 <span>
                   {c.title || "Sem título"} — {new Date(c.createdAt).toLocaleString()}

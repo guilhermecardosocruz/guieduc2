@@ -71,11 +71,13 @@ model Lesson {
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   title     String
   content   String?
+  number    Int? // número sequencial por turma
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   attendances Attendance[]
 
+  @@unique([classId, number])
   @@index([classId])
 }
 

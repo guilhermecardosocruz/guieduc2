@@ -7,7 +7,7 @@ import StudentImport from "@/components/StudentImport";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
-  id: string; classId: string; title: string; content?: string; createdAt: string; attendance: Attendance[];
+  id: string; classId: string; title: string; content?: string; createdAt: string; number?: number | null; attendance: Attendance[];
 };
 
 function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
@@ -57,11 +57,6 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
     });
   }
 
-  function downloadContentPrompt() {
-    const v = prompt("Conteúdo/observações da aula:", content || "") ?? "";
-    setContent(v);
-  }
-
   function saveCall() {
     if (!title.trim()) { alert("Informe o nome da aula."); return; }
     setSaving(true);
@@ -78,7 +73,7 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify(payload),
       }).then(async (res) => {
         if (!res.ok) throw new Error("api");
-        const created = await res.json();
+        const created = await res.json(); // contém number
         const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
         const rec: CallRecord = {
           id: created.id ?? crypto.randomUUID(),
@@ -86,18 +81,22 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
           title: created.title ?? payload.title,
           content: created.content ?? payload.content,
           createdAt: created.createdAt ?? new Date().toISOString(),
+          number: created.number ?? null,
           attendance: payload.attendance,
         };
         localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...calls]));
         window.location.href = `/classes/${classId}/chamadas`;
       }).catch(() => {
+        // OFFLINE: calcula próximo número local
         const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
+        const nextNumber = (calls.reduce((m, c) => Math.max(m, c.number ?? 0), 0) || 0) + 1;
         const rec: CallRecord = {
           id: crypto.randomUUID(),
           classId,
           title: payload.title,
           content: payload.content,
           createdAt: new Date().toISOString(),
+          number: nextNumber,
           attendance: payload.attendance,
         };
         localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...calls]));
@@ -119,8 +118,11 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
         />
 
         <label className="mb-2 block text-sm font-medium">Conteúdo</label>
-        <button type="button" onClick={downloadContentPrompt}
-          className="mb-4 w-full rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700">
+        <button
+          type="button"
+          onClick={() => { const v = prompt("Conteúdo/observações da aula:", content || "") ?? ""; }}
+          className="mb-4 w-full rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700"
+        >
           Conteúdo da aula
         </button>
 
@@ -144,7 +146,6 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
           </button>
         </div>
 
-        {/* Importação com design melhorado e suporte CSV/XLSX */}
         <StudentImport classId={classId} existing={students} onAdd={onImportAdd} />
       </div>
     </main>

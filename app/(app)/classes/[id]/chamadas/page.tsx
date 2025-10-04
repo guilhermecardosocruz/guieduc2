@@ -29,7 +29,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
   }
 
   async function load(id: string, ord: "asc"|"desc") {
-    setList(readLocal(id, ord)); // mostra local primeiro
+    setList(readLocal(id, ord)); // local primeiro
     try {
       const r = await fetch(`/api/classes/${id}/chamadas?order=${ord}`, { cache: "no-store" });
       if (r.ok) {
@@ -90,12 +90,13 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
             <li key={c.id} className="p-0">
               <Link
                 href={`/classes/${classId}/chamadas/${c.id}`}
-                className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50"
+                className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-gray-50"
                 title="Editar chamada"
               >
-                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border px-2 text-xs text-gray-700">
-                  {c.number ?? "—"}
-                </span>
+                {/* Só mostra o número se existir, sem caixinha */}
+                {typeof c.number === 'number' && (
+                  <span className="text-xs tabular-nums text-gray-700">{c.number}</span>
+                )}
                 <span>
                   {c.title || "Sem título"} — {new Date(c.createdAt).toLocaleString()}
                 </span>

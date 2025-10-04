@@ -1,4 +1,4 @@
-export const metadata = { title: "Sem conexão • GUIEDUC2" };
+"use client";
 
 export default function OfflinePage() {
   return (

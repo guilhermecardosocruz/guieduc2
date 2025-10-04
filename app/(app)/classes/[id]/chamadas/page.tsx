@@ -62,25 +62,29 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <header className="mb-6 flex items-center justify-between">
+      {/* 1ª linha: título + Nova chamada */}
+      <div className="mb-2 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Chamadas</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleOrder}
-            className="rounded-xl border px-3 py-2 text-sm transition hover:border-blue-500 hover:text-blue-600"
-            title="Alternar ordenação"
-          >
-            Ordem: {order === "asc" ? "Antigas → Novas" : "Novas → Antigas"}
-          </button>
-          <Link
-            href={`/classes/${classId}/chamadas/new`}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            Nova chamada
-          </Link>
-        </div>
-      </header>
+        <Link
+          href={`/classes/${classId}/chamadas/new`}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        >
+          Nova chamada
+        </Link>
+      </div>
+
+      {/* 2ª linha: controle de ordenação */}
+      <div className="mb-6 flex items-center gap-2">
+        <span className="text-xs text-gray-500">Ordenação:</span>
+        <button
+          type="button"
+          onClick={toggleOrder}
+          className="rounded-xl border px-3 py-2 text-sm transition hover:border-blue-500 hover:text-blue-600"
+          title="Alternar ordenação"
+        >
+          {order === "asc" ? "Antigas → Novas" : "Novas → Antigas"}
+        </button>
+      </div>
 
       {!list.length ? (
         <p className="text-sm text-gray-500">Nenhuma chamada criada ainda.</p>
@@ -93,7 +97,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
                 className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-gray-50"
                 title="Editar chamada"
               >
-                {/* Só mostra o número se existir, sem caixinha */}
+                {/* número (se existir), sem caixinha */}
                 {typeof c.number === 'number' && (
                   <span className="text-xs tabular-nums text-gray-700">{c.number}</span>
                 )}

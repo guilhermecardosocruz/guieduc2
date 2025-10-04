@@ -1,64 +1,37 @@
-"use client";
-import { useEffect, useState } from "react";
-import Brand from "@/components/Brand";
-import { saveMany, getAll } from "@/lib/offline";
+import Link from "next/link";
 
-type ClassItem = { id: string; name: string; updatedAt: number };
+export const metadata = { title: "Dashboard | GUIEDUC" };
 
 export default function DashboardPage() {
-  const [items, setItems] = useState<ClassItem[]>([]);
-  const [source, setSource] = useState<"server"|"cache"|"none">("none");
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/classes", { cache: "no-store" });
-        if (!res.ok) throw 0;
-        const data: ClassItem[] = await res.json();
-        await saveMany("classes", data, x => x.id);
-        setItems(data); setSource("server");
-      } catch {
-        const cached = await getAll<ClassItem>("classes");
-        setItems(cached); setSource("cache");
-      }
-    })();
-  }, []);
-
-  async function doLogout(){
-    await fetch('/api/auth/logout', { method:'POST' });
-    location.href = '/login';
-  }
+  const actions = [
+    { href: "/classes/new", title: "Criar Turma", desc: "Cadastre uma nova turma com nome e configurações básicas." },
+    { href: "/class-groups/new", title: "Criar Grupo de Turmas", desc: "Agrupe várias turmas para organizar conteúdos e chamadas." },
+  ];
 
   return (
-    <div className="min-h-dvh flex flex-col">
-      <header className="w-full border-b border-gray-100 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-          <Brand />
-          <div className="flex items-center gap-3 text-sm text-gray-500">
-            {source !== "none" && <span>⚡ {source === "server" ? "Dados do servidor" : "Dados locais"}</span>}
-            <button onClick={doLogout} className="btn-primary">Sair</button>
-          </div>
-        </div>
+    <main className="mx-auto max-w-5xl px-4 py-8">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold">Bem-vindo(a)</h1>
+        <p className="text-sm text-gray-600">Escolha abaixo o que deseja criar.</p>
       </header>
-      <main className="flex-1">
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-gray-600">Acesso protegido por JWT em cookie HttpOnly.</p>
 
-          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.length === 0 && <div className="rounded-3xl border border-gray-100 p-6 bg-white">Sem dados ainda.</div>}
-            {items.map(c => (
-              <div key={c.id} className="rounded-3xl border border-gray-100 p-6 bg-white">
-                <div className="font-semibold">{c.name}</div>
-                <div className="text-xs text-gray-500">Atualizado: {new Date(c.updatedAt).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </main>
-      <footer className="border-t border-gray-100 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-gray-500">© GUIEDUC2 — multiplataforma (Web / Android / iOS)</div>
-      </footer>
-    </div>
+      <section className="grid gap-4 sm:grid-cols-2">
+        {actions.map((a) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            className="group rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-medium">{a.title}</h2>
+              <span aria-hidden className="rounded-full border px-2 py-1 text-xs text-gray-600 transition group-hover:border-blue-500 group-hover:text-blue-600">
+                abrir →
+              </span>
+            </div>
+            <p className="text-sm text-gray-600">{a.desc}</p>
+          </Link>
+        ))}
+      </section>
+    </main>
   );
 }

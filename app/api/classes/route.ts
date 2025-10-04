@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 
+let mem: { id: string; name: string; createdAt: string }[] = [];
+
 export async function GET() {
-  const now = Date.now();
-  const data = [
-    { id: "1", name: "Turma A", updatedAt: now },
-    { id: "2", name: "Turma B", updatedAt: now }
-  ];
-  return NextResponse.json(data, { status: 200 });
+  return NextResponse.json(mem, { status: 200 });
 }
 
 export async function POST(req: Request) {
-  const { name } = await req.json().catch(()=>({}));
-  if (!name) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
-  const id = crypto.randomUUID();
-  return NextResponse.json({ ok: true, id }, { status: 201 });
+  try {
+    const body = await req.json();
+    const item = { id: crypto.randomUUID(), name: String(body.name || "").trim(), createdAt: new Date().toISOString() };
+    if (!item.name) return NextResponse.json({ error: "name required" }, { status: 400 });
+    mem = [item, ...mem];
+    return NextResponse.json(item, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
 }

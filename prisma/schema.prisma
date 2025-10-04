@@ -24,7 +24,9 @@ model Class {
   updatedAt DateTime @updatedAt
 
   // Relacionamento opcional com grupos via tabela de junção
-  groups ClassGroupOnClass[]
+  groups   ClassGroupOnClass[]
+  students Student[]
+  lessons  Lesson[]
 }
 
 model ClassGroup {
@@ -38,13 +40,51 @@ model ClassGroup {
 
 // Tabela de junção N:N entre Class e ClassGroup
 model ClassGroupOnClass {
-  classId  String
-  groupId  String
+  classId    String
+  groupId    String
   assignedAt DateTime @default(now())
 
-  class Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
   group ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([classId, groupId])
   @@index([groupId])
+}
+
+// === GUIEDUC: Alunos, Chamadas e Presenças ===
+model Student {
+  id      String @id @default(uuid())
+  name    String
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  attendances Attendance[]
+
+  @@index([classId])
+}
+
+model Lesson {
+  id        String   @id @default(uuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title     String
+  content   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances Attendance[]
+
+  @@index([classId])
+}
+
+model Attendance {
+  lessonId  String
+  studentId String
+  present   Boolean @default(true)
+
+  lesson  Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([lessonId, studentId])
+  @@index([studentId])
 }

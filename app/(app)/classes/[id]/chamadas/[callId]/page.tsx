@@ -207,7 +207,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
         />
 
         <label className="mb-2 block text-sm font-medium">Conteúdo</label>
-        <ViewContentModal title={title} content={content} />
+        
 
         {/* toolbar acima da lista */}
         <div className="mb-2 flex items-center justify-between">

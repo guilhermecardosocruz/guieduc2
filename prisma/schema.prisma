@@ -71,6 +71,11 @@ model Lesson {
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   title     String
   content   String?
+  // --- Novos campos p/ Conteúdos ---
+  objectives   String? // Objetivos
+  activities   String? // Desenvolvimento das Atividades
+  resources    String? // Recursos Didáticos
+  bncc         String? // BNCC
   number    Int // número sequencial por turma
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

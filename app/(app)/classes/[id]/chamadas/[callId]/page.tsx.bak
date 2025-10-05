@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import EditableStudentList, { Student } from "@/components/EditableStudentList";
 import AddStudentModal from "@/components/AddStudentModal";
+import ViewContentModal from "@/components/ViewContentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
@@ -219,6 +220,10 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
           <span className="text-sm font-medium">Lista de alunos ({orderedStudents.length})</span>
           <AddStudentModal onSave={handleAddStudent} />
         </div>
+<div className="mb-2 flex items-center justify-end">
+  <ViewContentModal title={title} content={content} />
+</div>
+
 
         <EditableStudentList
           classId={classId}

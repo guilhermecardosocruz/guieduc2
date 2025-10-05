@@ -40,7 +40,10 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         const map: Record<string, boolean> = {};
         (Array.isArray(ss) ? ss : []).forEach(s => { map[s.id] = true; });
         setPresentMap(map);
-      } catch { setStudents([]); setPresentMap({}); }
+      } catch {
+        setStudents([]);
+        setPresentMap({});
+      }
     })();
   }, [params]);
 
@@ -49,7 +52,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
     [students]
   );
 
-  // handler do modal: adiciona aluno (offline-first) e tenta salvar no servidor
+  // modal: adicionar aluno manualmente
   function handleAddStudent(name: string, cpf?: string, contact?: string) {
     const tempId = crypto.randomUUID();
     const newStudent = { id: tempId, name, cpf, contact };
@@ -82,6 +85,62 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           });
         }
       }).catch(()=>{});
+    }
+  }
+
+  // planilha: importar CSV/XLSX
+  function handleImported(added: any[]) {
+    if (!Array.isArray(added) || added.length === 0) return;
+
+    const toAdd = added.map((a:any)=>({
+      id: a.id ?? crypto.randomUUID(),
+      name: String(a.name||"").trim(),
+      cpf: (a.cpf?.toString() ?? "").trim() || undefined,
+      contact: (a.contact?.toString() ?? "").trim() || undefined,
+    })).filter((s:any)=>s.name);
+
+    setStudents(prev=>{
+      const next = Array.isArray(prev) ? [...prev] : [];
+      for (const s of toAdd) {
+        const dup = next.find(p => p.name === s.name && (p.cpf||"") === (s.cpf||""));
+        if (!dup) next.push(s);
+      }
+      try { if (classId) localStorage.setItem(lsKeyStudents(classId), JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    setPresentMap(prev=>{
+      const base = prev || {};
+      const updated:any = { ...base };
+      for (const s of toAdd) updated[s.id] = true;
+      return updated;
+    });
+
+    if (classId) {
+      for (const s of toAdd) {
+        fetch(`/api/classes/${classId}/students`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: s.name, cpf: s.cpf, contact: s.contact }),
+        }).then(async r=>{
+          if(!r.ok) return;
+          const created = await r.json();
+          if(created?.id && created.id !== s.id){
+            setStudents(cur => cur.map(st => st.id===s.id ? { ...st, id: created.id } : st));
+            try {
+              const saved:any[] = JSON.parse(localStorage.getItem(lsKeyStudents(classId)) || "[]");
+              const upd = saved.map(st => st.id===s.id ? { ...st, id: created.id } : st);
+              localStorage.setItem(lsKeyStudents(classId), JSON.stringify(upd));
+            } catch {}
+            setPresentMap(prev=>{
+              const p = (prev||{})[s.id] ?? true;
+              const { [s.id]:_, ...rest } = (prev||{});
+              return { ...rest, [created.id]: p };
+            });
+          }
+        }).catch(()=>{});
+      }
     }
   }
 
@@ -136,68 +195,6 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
     }
   }
 
-
-  // Recebe alunos importados (CSV/XLSX) e mescla com a lista atual
-  function handleImported(added: any[]) {
-    if (!Array.isArray(added) || added.length === 0) return;
-
-    const toAdd = added.map((a:any)=>({
-      id: a.id ?? crypto.randomUUID(),
-      name: String(a.name||"").trim(),
-      cpf: (a.cpf?.toString() ?? "").trim() || undefined,
-      contact: (a.contact?.toString() ?? "").trim() || undefined,
-    })).filter((s:any)=>s.name);
-
-    // mescla na lista atual
-    setStudents((prev:any[])=>{
-      const next = Array.isArray(prev) ? [...prev] : [];
-      for (const s of toAdd) {
-        const dup = next.find(p => p.name === s.name && (p.cpf||"") === (s.cpf||""));
-        if (!dup) next.push(s);
-      }
-      try {
-        if (classId) localStorage.setItem(`guieduc:class:${classId}:students`, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    // marca presença padrão
-    setPresentMap((prev:any)=>{
-      const base = prev || {};
-      const updated:any = { ...base };
-      for (const s of toAdd) updated[s.id] = true;
-      return updated;
-    });
-
-    // opcional: envia cada aluno para API
-    if (classId) {
-      for (const s of toAdd) {
-        fetch(`/api/classes/${classId}/students`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ name: s.name, cpf: s.cpf, contact: s.contact }),
-        }).then(async r=>{
-          if(!r.ok) return;
-          const created = await r.json();
-          if(created?.id && created.id !== s.id){
-            setStudents((cur:any[])=>cur.map(st=>st.id===s.id?{...st,id:created.id}:st));
-            try {
-              const saved:any[] = JSON.parse(localStorage.getItem(`guieduc:class:${classId}:students`) || '[]');
-              const upd = saved.map(st=>st.id===s.id?{...st,id:created.id}:st);
-              localStorage.setItem(`guieduc:class:${classId}:students`, JSON.stringify(upd));
-            } catch {}
-            setPresentMap((prev:any)=>{
-              const p=(prev||{})[s.id] ?? true;
-              const { [s.id]:_, ...rest } = (prev||{});
-              return { ...rest, [created.id]: p };
-            });
-          }
-        }).catch(()=>{});
-      }
-    }
-  }
-
   return (
     <main className="mx-auto max-w-md px-4 py-6">
       {/* top bar */}
@@ -205,7 +202,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         <Link href={`/classes/${classId}/chamadas`} className="text-sm text-blue-600 hover:underline">
           Voltar para Chamadas
         </Link>
-        <div /> {/* placeholder para alinhamento */}
+        <div /> {/* placeholder */}
       </div>
 
       <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -228,12 +225,9 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           Conteúdo da aula
         </button>
 
-        {/* toolbar acima da lista: modal + importação por planilha */}
-        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-sm font-medium">Lista de alunos ({orderedStudents.length})</span>
-          <div className="flex items-center gap-2">
-            <AddStudentModal onSave={handleAddStudent} />
-          </div>
+        {/* toolbar acima da lista: APENAS o modal */}
+        <div className="mb-2 flex items-center justify-end">
+          <AddStudentModal onSave={handleAddStudent} />
         </div>
 
         <EditableStudentList
@@ -242,7 +236,10 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           setStudents={setStudents}
           presentMap={presentMap}
           setPresentMap={setPresentMap}
-        /><div className="mt-4">
+        />
+
+        {/* botão criar chamada */}
+        <div className="mt-4">
           <button
             type="button"
             onClick={createCall}
@@ -251,6 +248,15 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           >
             {saving ? "Criando..." : "Criar chamada"}
           </button>
+        </div>
+
+        {/* bloco: importar por planilha (FICA ABAIXO DO BOTÃO) */}
+        <div className="mt-6 rounded-xl border border-dashed p-3">
+          <h3 className="mb-2 text-sm font-medium">Adicionar alunos por planilha</h3>
+          <p className="mb-2 text-xs text-gray-500">
+            CSV ou XLSX com colunas: <strong>nome</strong> (obrigatório), <strong>cpf</strong> e <strong>contact</strong> (opcionais).
+          </p>
+          <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
         </div>
       </div>
     </main>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import EditableStudentList, { Student } from "@/components/EditableStudentList";
 import AddStudentModal from "@/components/AddStudentModal";
 import StudentImport from "@/components/StudentImport";
+import ViewContentModal from "@/components/ViewContentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {

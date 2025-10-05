@@ -207,16 +207,10 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
         />{/* toolbar acima da lista */}
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">Lista de alunos ({orderedStudents.length})</span>
-
-          <div className="mb-2 flex items-center justify-end">
-
-            <ViewContentModal title={title} content={content} />
-
-          </div>
-
           <AddStudentModal onSave={handleAddStudent} />
         </div>
 <div className="mb-2 flex items-center justify-end">
+  <ViewContentModal title={title} content={content} />
 </div>
 
 

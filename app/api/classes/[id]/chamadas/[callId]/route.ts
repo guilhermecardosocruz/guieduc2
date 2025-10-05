@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Exclui a chamada e suas presenças
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string; callId: string }> }) {
   const { callId } = await ctx.params;
   await prisma.$transaction([

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Lista chamadas da turma com ordenação por número (fallback createdAt)
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const url = new URL(req.url);
@@ -13,6 +14,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   return NextResponse.json(calls);
 }
 
+// Cria chamada atribuindo número sequencial por turma (max(number)+1)
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
@@ -23,16 +25,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const attInput: Array<{ studentId: string; present: boolean }> =
     Array.isArray(body?.attendance) ? body.attendance : [];
 
-  // Próximo número sequencial por turma = quantidade atual + 1
-  const count = await prisma.lesson.count({ where: { classId: id } });
-  const nextNumber = count + 1;
+  // próximo número pela MAIOR numeração já usada na turma (não reutiliza após exclusões)
+  const agg = await prisma.lesson.aggregate({
+    where: { classId: id },
+    _max: { number: true },
+  });
+  const nextNumber = (agg._max.number ?? 0) + 1;
 
-  // valida alunos (se houver)
-  const validStudents = await prisma.student.findMany({
+  // filtra ids de alunos válidos (se veio attendance)
+  const valid = await prisma.student.findMany({
     where: { classId: id, id: { in: attInput.map(a => a.studentId) } },
     select: { id: true },
   });
-  const validIds = new Set(validStudents.map(s => s.id));
+  const validIds = new Set(valid.map(s => s.id));
   const attData = attInput
     .filter(a => validIds.has(a.studentId))
     .map(a => ({ studentId: a.studentId, present: !!a.present }));

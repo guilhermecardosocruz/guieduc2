@@ -136,6 +136,68 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
     }
   }
 
+
+  // Recebe alunos importados (CSV/XLSX) e mescla com a lista atual
+  function handleImported(added: any[]) {
+    if (!Array.isArray(added) || added.length === 0) return;
+
+    const toAdd = added.map((a:any)=>({
+      id: a.id ?? crypto.randomUUID(),
+      name: String(a.name||"").trim(),
+      cpf: (a.cpf?.toString() ?? "").trim() || undefined,
+      contact: (a.contact?.toString() ?? "").trim() || undefined,
+    })).filter((s:any)=>s.name);
+
+    // mescla na lista atual
+    setStudents((prev:any[])=>{
+      const next = Array.isArray(prev) ? [...prev] : [];
+      for (const s of toAdd) {
+        const dup = next.find(p => p.name === s.name && (p.cpf||"") === (s.cpf||""));
+        if (!dup) next.push(s);
+      }
+      try {
+        if (classId) localStorage.setItem(`guieduc:class:${classId}:students`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // marca presença padrão
+    setPresentMap((prev:any)=>{
+      const base = prev || {};
+      const updated:any = { ...base };
+      for (const s of toAdd) updated[s.id] = true;
+      return updated;
+    });
+
+    // opcional: envia cada aluno para API
+    if (classId) {
+      for (const s of toAdd) {
+        fetch(`/api/classes/${classId}/students`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: s.name, cpf: s.cpf, contact: s.contact }),
+        }).then(async r=>{
+          if(!r.ok) return;
+          const created = await r.json();
+          if(created?.id && created.id !== s.id){
+            setStudents((cur:any[])=>cur.map(st=>st.id===s.id?{...st,id:created.id}:st));
+            try {
+              const saved:any[] = JSON.parse(localStorage.getItem(`guieduc:class:${classId}:students`) || '[]');
+              const upd = saved.map(st=>st.id===s.id?{...st,id:created.id}:st);
+              localStorage.setItem(`guieduc:class:${classId}:students`, JSON.stringify(upd));
+            } catch {}
+            setPresentMap((prev:any)=>{
+              const p=(prev||{})[s.id] ?? true;
+              const { [s.id]:_, ...rest } = (prev||{});
+              return { ...rest, [created.id]: p };
+            });
+          }
+        }).catch(()=>{});
+      }
+    }
+  }
+
   return (
     <main className="mx-auto max-w-md px-4 py-6">
       {/* top bar */}

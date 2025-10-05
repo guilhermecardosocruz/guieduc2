@@ -170,7 +170,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm font-medium">Lista de alunos ({orderedStudents.length})</span>
           <div className="flex items-center gap-2">
-            <StudentImport classId={classId} />
+            <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
             <AddStudentModal onSave={handleAddStudent} />
           </div>
         </div>

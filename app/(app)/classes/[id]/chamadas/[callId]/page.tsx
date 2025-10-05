@@ -206,6 +206,74 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
     closeAddModal();
   }
 
+
+  // Modal: adicionar aluno (Criar chamada)
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addCpf, setAddCpf] = useState("");
+  const [addContact, setAddContact] = useState("");
+
+  function openAddModal() {
+    setAddName(""); setAddCpf(""); setAddContact("");
+    setAddOpen(true);
+    setTimeout(() => {
+      const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
+      dlg?.showModal?.();
+    }, 0);
+  }
+  function closeAddModal() {
+    setAddOpen(false);
+    const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
+    dlg?.close?.();
+  }
+
+  async function saveAddModal() {
+    const name = addName.trim();
+    const cpf = addCpf.trim() || undefined;
+    const contact = addContact.trim() || undefined;
+    if (!name) { alert("Nome é obrigatório."); return; }
+
+    const tempId = crypto.randomUUID();
+    const newStudent = { id: tempId, name, cpf, contact };
+
+    // Estado + localStorage (offline-first)
+    const nextStudents = [...students, newStudent];
+    setStudents(nextStudents);
+    try {
+      const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+      localStorage.setItem(keyStudents(classId), JSON.stringify(nextStudents));
+    } catch {}
+    setPresentMap(prev => ({ ...prev, [tempId]: true }));
+
+    // Tenta salvar no servidor (se existir rota POST /students)
+    try {
+      const res = await fetch(`/api/classes/${classId}/students`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, cpf, contact }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        if (created?.id && created.id !== tempId) {
+          setStudents(cur => cur.map(s => s.id === tempId ? { ...s, id: created.id } : s));
+          try {
+            const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+            const saved: any[] = JSON.parse(localStorage.getItem(keyStudents(classId)) || "[]");
+            const updated = saved.map((s: any) => s.id === tempId ? { ...s, id: created.id } : s);
+            localStorage.setItem(keyStudents(classId), JSON.stringify(updated));
+          } catch {}
+          setPresentMap(prev => {
+            const presentTemp = prev[tempId] ?? true;
+            const { [tempId]: _, ...rest } = prev;
+            return { ...rest, [created.id]: presentTemp };
+          });
+        }
+      }
+    } catch {}
+    closeAddModal();
+  }
+
   return (
     <main className="mx-auto max-w-md px-4 py-6">
       <div className="mb-2 flex items-center justify-between"><Link href={`/classes//chamadas`} className="text-sm text-blue-600 hover:underline">Voltar para Chamadas</Link><button type="button" onClick={deleteCall} className="rounded-xl border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50" title="Excluir esta chamada">Excluir chamada</button></div>
@@ -227,6 +295,51 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 </div>
 
   {/* Modal: adicionar aluno */}
+  <dialog id="student-add-dialog" className="rounded-2xl p-0 backdrop:bg-black/30">
+    <form method="dialog" className="w-[90vw] max-w-md rounded-2xl border border-gray-200 bg-white p-4">
+      <h3 className="mb-3 text-base font-semibold">Adicionar aluno</h3>
+
+      <label className="mb-1 block text-sm text-gray-700">Nome <span className="text-red-500">*</span></label>
+      <input
+        value={addName} onChange={(e)=>setAddName(e.target.value)}
+        className="mb-3 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Nome do aluno(a)" autoFocus
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm text-gray-700">CPF (opcional)</label>
+          <input
+            value={addCpf} onChange={(e)=>setAddCpf(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="000.000.000-00"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-gray-700">Contato (opcional)</label>
+          <input
+            value={addContact} onChange={(e)=>setAddContact(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="(11) 99999-0000 ou email"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <button type="button" onClick={saveAddModal}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+          Salvar
+        </button>
+        <button type="button" onClick={closeAddModal}
+          className="rounded-xl border px-4 py-2 text-sm hover:border-gray-400">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+
+  {/* Modal: adicionar aluno (Criar chamada) */}
   <dialog id="student-add-dialog" className="rounded-2xl p-0 backdrop:bg-black/30">
     <form method="dialog" className="w-[90vw] max-w-md rounded-2xl border border-gray-200 bg-white p-4">
       <h3 className="mb-3 text-base font-semibold">Adicionar aluno</h3>

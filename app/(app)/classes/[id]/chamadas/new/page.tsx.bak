@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import EditableStudentList, { Student } from "@/components/EditableStudentList";
 import StudentImport from "@/components/StudentImport";
-import AddStudentModal from "@/components/AddStudentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
@@ -128,10 +127,6 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
         </button>
 
         <div className="mb-2 text-sm font-medium">Lista de alunos ({ordered.length})</div>
-  <div className="mb-2 flex items-center justify-end">
-    <AddStudentModal onSave={handleAddStudent} />
-  </div>
-
         <EditableStudentList
           classId={classId}
           students={students}
@@ -145,7 +140,7 @@ export default function CallCreatePage({ params }: { params: Promise<{ id: strin
             className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60">
             {saving ? "Salvando..." : "Salvar chamada"}
           </button>
-          <button type="button" onClick={()=>{}}
+          <button type="button" onClick={addStudent}
             className="rounded-2xl border px-4 py-3 text-sm transition hover:border-blue-500 hover:text-blue-600">
             Adicionar aluno
           </button>

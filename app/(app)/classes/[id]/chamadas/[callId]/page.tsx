@@ -207,13 +207,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
         />
 
         <label className="mb-2 block text-sm font-medium">Conteúdo</label>
-        <button
-          type="button"
-          onClick={() => { const v = prompt("Conteúdo/observações:", content || "") ?? ""; setContent(v); }}
-          className="mb-4 w-full rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700"
-        >
-          Conteúdo da aula
-        </button>
+        <ViewContentModal title={title} content={content} />
 
         {/* toolbar acima da lista */}
         <div className="mb-2 flex items-center justify-between">

@@ -242,15 +242,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           setStudents={setStudents}
           presentMap={presentMap}
           setPresentMap={setPresentMap}
-        />
-  <div className="mt-6 rounded-xl border border-dashed p-3">
-    <h3 className="mb-2 text-sm font-medium">Adicionar alunos por planilha</h3>
-    <p className="mb-2 text-xs text-gray-500">CSV ou XLSX com colunas: <strong>nome</strong> (obrigatório), <strong>cpf</strong> e <strong>contact</strong> (opcionais).</p>
-    <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
-  </div>
-
-
-        <div className="mt-4">
+        /><div className="mt-4">
           <button
             type="button"
             onClick={createCall}

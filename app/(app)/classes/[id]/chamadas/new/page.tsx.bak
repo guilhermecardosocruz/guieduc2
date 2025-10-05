@@ -232,7 +232,6 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm font-medium">Lista de alunos ({orderedStudents.length})</span>
           <div className="flex items-center gap-2">
-            <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
             <AddStudentModal onSave={handleAddStudent} />
           </div>
         </div>
@@ -244,6 +243,12 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           presentMap={presentMap}
           setPresentMap={setPresentMap}
         />
+  <div className="mt-6 rounded-xl border border-dashed p-3">
+    <h3 className="mb-2 text-sm font-medium">Adicionar alunos por planilha</h3>
+    <p className="mb-2 text-xs text-gray-500">CSV ou XLSX com colunas: <strong>nome</strong> (obrigatório), <strong>cpf</strong> e <strong>contact</strong> (opcionais).</p>
+    <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
+  </div>
+
 
         <div className="mt-4">
           <button

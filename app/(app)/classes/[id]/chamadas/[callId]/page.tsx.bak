@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import EditableStudentList, { Student } from "@/components/EditableStudentList";
 import AddStudentModal from "@/components/AddStudentModal";
+import AddStudentModal from "@/components/AddStudentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
@@ -141,12 +142,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
 
   // Modal: adicionar aluno
-  const [addOpen, setAddOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addCpf, setAddCpf] = useState("");
-  const [addContact, setAddContact] = useState("");
-
-  function openAddModal() {
+  function openAddModal_X() {
     setAddName(""); setAddCpf(""); setAddContact("");
     setAddOpen(true);
     setTimeout(() => {
@@ -154,13 +150,13 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
       dlg?.showModal?.();
     }, 0);
   }
-  function closeAddModal() {
+  function closeAddModal_X() {
     setAddOpen(false);
     const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
     dlg?.close?.();
   }
 
-  async function saveAddModal() {
+  async function saveAddModal_X() {
     const name = addName.trim();
     const cpf = addCpf.trim() || undefined;
     const contact = addContact.trim() || undefined;
@@ -209,12 +205,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
 
   // Modal: adicionar aluno (Criar chamada)
-  const [addOpen, setAddOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addCpf, setAddCpf] = useState("");
-  const [addContact, setAddContact] = useState("");
-
-  function openAddModal() {
+  function openAddModal_X() {
     setAddName(""); setAddCpf(""); setAddContact("");
     setAddOpen(true);
     setTimeout(() => {
@@ -222,13 +213,13 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
       dlg?.showModal?.();
     }, 0);
   }
-  function closeAddModal() {
+  function closeAddModal_X() {
     setAddOpen(false);
     const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
     dlg?.close?.();
   }
 
-  async function saveAddModal() {
+  async function saveAddModal_X() {
     const name = addName.trim();
     const cpf = addCpf.trim() || undefined;
     const contact = addContact.trim() || undefined;
@@ -332,7 +323,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
         <div className="mb-2 flex items-center justify-between">
   <span className="text-sm font-medium">Lista de alunos ({ordered.length})</span>
-  <button type="button" onClick={openAddModal} className="rounded-2xl border px-3 py-2 text-sm transition hover:border-blue-500 hover:text-blue-600">Adicionar aluno</button>
+  <button type="button" onClick={() => { (document.getElementById("student-add-dialog") as HTMLDialogElement | null)?.showModal?.(); }} className="rounded-2xl border px-3 py-2 text-sm transition hover:border-blue-500 hover:text-blue-600">Adicionar aluno</button>
 </div>
 
   {/* Modal: adicionar aluno */}

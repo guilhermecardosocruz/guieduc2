@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import EditableStudentList, { Student } from "@/components/EditableStudentList";
+import AddStudentModal from "@/components/AddStudentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
@@ -140,20 +141,6 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
 
   // Modal: adicionar aluno
-      }
-    } catch {}
-    closeAddModal();
-  }
-
-
-  // Modal: adicionar aluno (Criar chamada)
-      }
-    } catch {}
-    closeAddModal();
-  }
-
-
-  // Modal: adicionar aluno (edição)
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addCpf, setAddCpf] = useState("");
@@ -218,6 +205,114 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
       }
     } catch {}
     closeAddModal();
+  }
+
+
+  // Modal: adicionar aluno (Criar chamada)
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addCpf, setAddCpf] = useState("");
+  const [addContact, setAddContact] = useState("");
+
+  function openAddModal() {
+    setAddName(""); setAddCpf(""); setAddContact("");
+    setAddOpen(true);
+    setTimeout(() => {
+      const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
+      dlg?.showModal?.();
+    }, 0);
+  }
+  function closeAddModal() {
+    setAddOpen(false);
+    const dlg = document.getElementById("student-add-dialog") as HTMLDialogElement | null;
+    dlg?.close?.();
+  }
+
+  async function saveAddModal() {
+    const name = addName.trim();
+    const cpf = addCpf.trim() || undefined;
+    const contact = addContact.trim() || undefined;
+    if (!name) { alert("Nome é obrigatório."); return; }
+
+    const tempId = crypto.randomUUID();
+    const newStudent = { id: tempId, name, cpf, contact };
+
+    // Estado + localStorage (offline-first)
+    const nextStudents = [...students, newStudent];
+    setStudents(nextStudents);
+    try {
+      const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+      localStorage.setItem(keyStudents(classId), JSON.stringify(nextStudents));
+    } catch {}
+    setPresentMap(prev => ({ ...prev, [tempId]: true }));
+
+    // Tenta salvar no servidor (se existir rota POST /students)
+    try {
+      const res = await fetch(`/api/classes/${classId}/students`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, cpf, contact }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        if (created?.id && created.id !== tempId) {
+          setStudents(cur => cur.map(s => s.id === tempId ? { ...s, id: created.id } : s));
+          try {
+            const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+            const saved: any[] = JSON.parse(localStorage.getItem(keyStudents(classId)) || "[]");
+            const updated = saved.map((s: any) => s.id === tempId ? { ...s, id: created.id } : s);
+            localStorage.setItem(keyStudents(classId), JSON.stringify(updated));
+          } catch {}
+          setPresentMap(prev => {
+            const presentTemp = prev[tempId] ?? true;
+            const { [tempId]: _, ...rest } = prev;
+            return { ...rest, [created.id]: presentTemp };
+          });
+        }
+      }
+    } catch {}
+    closeAddModal();
+  }
+
+
+  // Handler do modal: cria aluno offline-first e tenta salvar no servidor
+  function handleAddStudent(name: string, cpf?: string, contact?: string) {
+    const tempId = crypto.randomUUID();
+    const newStudent = { id: tempId, name, cpf, contact };
+
+    const nextStudents = [...students, newStudent];
+    setStudents(nextStudents);
+    try {
+      const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+      localStorage.setItem(keyStudents(classId), JSON.stringify(nextStudents));
+    } catch {}
+    setPresentMap(prev => ({ ...prev, [tempId]: true }));
+
+    // tenta API (se existir /students)
+    fetch(`/api/classes/${classId}/students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name, cpf, contact }),
+    }).then(async (r) => {
+      if (!r.ok) return;
+      const created = await r.json();
+      if (created?.id && created.id !== tempId) {
+        setStudents(cur => cur.map(s => s.id === tempId ? { ...s, id: created.id } : s));
+        try {
+          const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+          const saved: any[] = JSON.parse(localStorage.getItem(keyStudents(classId)) || "[]");
+          const updated = saved.map((s: any) => s.id === tempId ? { ...s, id: created.id } : s);
+          localStorage.setItem(keyStudents(classId), JSON.stringify(updated));
+        } catch {}
+        setPresentMap(prev => {
+          const presentTemp = prev[tempId] ?? true;
+          const { [tempId]: _, ...rest } = prev;
+          return { ...rest, [created.id]: presentTemp };
+        });
+      }
+    }).catch(() => {});
   }
 
   return (
@@ -328,6 +423,10 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
       </div>
     </form>
   </dialog>
+  <div className="mb-2 flex items-center justify-end">
+    <AddStudentModal onSave={handleAddStudent} />
+  </div>
+
 
         <EditableStudentList
           classId={classId}

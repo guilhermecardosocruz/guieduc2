@@ -82,6 +82,62 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
     }
   }
 
+
+  async function addStudent() {
+    // 1) coleta dados (Nome obrigatório; CPF/Contato opcionais)
+    const name = prompt("Nome do aluno(a): (obrigatório)")?.trim();
+    if (!name) return;
+    const cpf = prompt("CPF (opcional):")?.trim() || undefined;
+    const contact = prompt("Contato (telefone/email) (opcional):")?.trim() || undefined;
+
+    // 2) cria aluno temporário (offline-first)
+    const tempId = crypto.randomUUID();
+    const newStudent = { id: tempId, name, cpf, contact };
+
+    // atualiza estado
+    const nextStudents = [...students, newStudent];
+    setStudents(nextStudents);
+
+    // localStorage dos alunos da turma
+    try {
+      const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+      localStorage.setItem(keyStudents(classId), JSON.stringify(nextStudents));
+    } catch {}
+
+    // marca presente por padrão na chamada atual
+    setPresentMap(prev => ({ ...prev, [tempId]: true }));
+
+    // 3) tenta salvar no servidor (se a rota existir)
+    try {
+      const res = await fetch(`/api/classes/${classId}/students`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, cpf, contact }),
+      });
+      if (res.ok) {
+        const created = await res.json(); // deve conter created.id
+        if (created?.id && created.id !== tempId) {
+          // substitui id temporário pelo definitivo no estado/local
+          setStudents(cur => cur.map(s => s.id === tempId ? { ...s, id: created.id } : s));
+          try {
+            const keyStudents = (id: string) => `guieduc:class:${id}:students`;
+            const saved: any[] = JSON.parse(localStorage.getItem(keyStudents(classId)) || "[]");
+            const updated = saved.map((s: any) => s.id === tempId ? { ...s, id: created.id } : s);
+            localStorage.setItem(keyStudents(classId), JSON.stringify(updated));
+          } catch {}
+          // ajusta presentMap para nova chave
+          setPresentMap(prev => {
+            const { [tempId]: tmp, ...rest } = prev;
+            return { ...rest, [created.id]: tmp ?? true };
+          });
+        }
+      }
+    } catch {
+      // se offline/erro, mantemos só local; tudo bem
+    }
+  }
+
   return (
     <main className="mx-auto max-w-md px-4 py-6">
       <div className="mb-2 flex items-center justify-between"><Link href={`/classes//chamadas`} className="text-sm text-blue-600 hover:underline">Voltar para Chamadas</Link><button type="button" onClick={deleteCall} className="rounded-xl border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50" title="Excluir esta chamada">Excluir chamada</button></div>
@@ -97,7 +153,10 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
           Conteúdo da aula
         </button>
 
-        <div className="mb-2 text-sm font-medium">Lista de alunos ({ordered.length})</div>
+        <div className="mb-2 flex items-center justify-between">
+  <span className="text-sm font-medium">Lista de alunos ({ordered.length})</span>
+  <button type="button" onClick={addStudent} className="rounded-2xl border px-3 py-2 text-sm transition hover:border-blue-500 hover:text-blue-600">Adicionar aluno</button>
+</div>
         <EditableStudentList
           classId={classId}
           students={students}

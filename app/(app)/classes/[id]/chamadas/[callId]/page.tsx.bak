@@ -57,9 +57,34 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
     } finally { setSaving(false); }
   }
 
+
+  async function deleteCall() {
+    if (!confirm("Tem certeza que deseja excluir esta chamada? Essa ação não pode ser desfeita.")) return;
+    try {
+      // tenta excluir no servidor
+      await fetch(`/api/classes/${classId}/chamadas/${callId}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).catch(() => {});
+
+      // remove do localStorage (fallback/offline)
+      try {
+        const key = (id: string) => `guieduc:class:${id}:calls`;
+        const calls: any[] = JSON.parse(localStorage.getItem(key(classId)) || "[]");
+        const next = calls.filter(c => c.id !== callId);
+        localStorage.setItem(key(classId), JSON.stringify(next));
+      } catch {}
+
+      // volta para a lista
+      window.location.href = `/classes/${classId}/chamadas`;
+    } catch {
+      alert("Não foi possível excluir agora. Tente novamente.");
+    }
+  }
+
   return (
     <main className="mx-auto max-w-md px-4 py-6">
-      <Link href={`/classes/${classId}/chamadas`} className="text-sm text-blue-600 hover:underline">Voltar para Chamadas</Link>
+      <div className="mb-2 flex items-center justify-between"><Link href={`/classes//chamadas`} className="text-sm text-blue-600 hover:underline">Voltar para Chamadas</Link><button type="button" onClick={deleteCall} className="rounded-xl border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50" title="Excluir esta chamada">Excluir chamada</button></div>
 
       <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <label className="mb-2 block text-sm font-medium">Nome da aula</label>

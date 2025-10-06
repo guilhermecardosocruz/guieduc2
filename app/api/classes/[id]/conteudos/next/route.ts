@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type Ctx = { params: Promise<{ id: string; number: string }> };
+type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { id, number } = await params;
-    const n = Number(number);
-    if (!id || !Number.isFinite(n)) {
-      return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
-    }
+    const { id } = await params;
+    if (!id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+
+    const last = await prisma.lesson.findFirst({
+      where: { classId: id },
+      orderBy: { number: "desc" },
+      select: { number: true },
+    });
+    const nextNumber = (last?.number ?? 0) + 1;
 
     const item = await prisma.lesson.findUnique({
-      where: { classId_number: { classId: id, number: n } },
+      where: { classId_number: { classId: id, number: nextNumber } },
       select: {
         number: true,
         title: true,
@@ -24,11 +28,11 @@ export async function GET(_req: Request, { params }: Ctx) {
       },
     });
 
-    if (!item) return new NextResponse(null, { status: 404 });
+    if (!item) return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 
     return NextResponse.json(item, { status: 200, headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    console.error("[GET conteudos/:number]", err);
+    console.error("[GET conteudos/next]", err);
     return NextResponse.json({ error: "Erro interno." }, { status: 500 });
   }
 }

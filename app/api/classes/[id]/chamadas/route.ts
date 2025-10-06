@@ -1,58 +1,53 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Lista chamadas da turma com ordenação por número (fallback createdAt)
-export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params;
-  const url = new URL(req.url);
-  const order = (url.searchParams.get("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-  const calls = await prisma.lesson.findMany({
-    where: { classId: id },
-    orderBy: [{ number: order }, { createdAt: order }],
-  });
-  return NextResponse.json(calls);
+function J(data:any, status=200){
+  return new NextResponse(JSON.stringify(data), { status, headers: { "cache-control":"no-store", "content-type":"application/json" }});
 }
 
-// Cria chamada atribuindo número sequencial por turma (max(number)+1)
+// POST /api/classes/[id]/chamadas
+// body: { title?: string, content?: string, number?: number, attendances?: { studentId: string, present: boolean }[] }
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const body = await req.json().catch(() => ({}));
-  const title = String(body?.title || "").trim();
-  if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
+  const body = await req.json();
 
-  const content: string | undefined = body?.content?.trim() || undefined;
-  const attInput: Array<{ studentId: string; present: boolean }> =
-    Array.isArray(body?.attendance) ? body.attendance : [];
+  let nextNumber = body?.number as number | undefined;
+  if (nextNumber == null) {
+    const last = await prisma.lesson.findFirst({
+      where: { classId: id },
+      orderBy: [{ number: "desc" }],
+      select: { number: true },
+    });
+    nextNumber = (last?.number ?? 0) + 1;
+  }
 
-  // próximo número pela MAIOR numeração já usada na turma (não reutiliza após exclusões)
-  const agg = await prisma.lesson.aggregate({
-    where: { classId: id },
-    _max: { number: true },
-  });
-  const nextNumber = (agg._max.number ?? 0) + 1;
-
-  // filtra ids de alunos válidos (se veio attendance)
-  const valid = await prisma.student.findMany({
-    where: { classId: id, id: { in: attInput.map(a => a.studentId) } },
-    select: { id: true },
-  });
-  const validIds = new Set(valid.map(s => s.id));
-  const attData = attInput
-    .filter(a => validIds.has(a.studentId))
-    .map(a => ({ studentId: a.studentId, present: !!a.present }));
+  let attendanceData: { studentId: string; present: boolean; classId: string }[] = [];
+  if (Array.isArray(body?.attendances) && body.attendances.length > 0) {
+    attendanceData = body.attendances.map((a: any) => ({
+      studentId: String(a.studentId),
+      present: Boolean(a.present),
+      classId: id,
+    }));
+  } else {
+    const students = await prisma.student.findMany({ where: { classId: id }, select: { id: true } });
+    attendanceData = students.map(s => ({ studentId: s.id, present: false, classId: id }));
+  }
 
   const created = await prisma.lesson.create({
     data: {
       classId: id,
-      title,
-      content,
+      title: body?.title ?? `Chamada ${nextNumber}`,
+      content: body?.content,
       number: nextNumber,
-      ...(attData.length
-        ? { attendances: { createMany: { data: attData, skipDuplicates: true } } }
-        : {}),
+      attendances: {
+        createMany: { data: attendanceData, skipDuplicates: true },
+      },
     },
+    include: { attendances: true },
   });
 
-  return NextResponse.json(created, { status: 201 });
+  return J(created, 201);
 }

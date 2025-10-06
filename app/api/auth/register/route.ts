@@ -1,28 +1,28 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/crypto';
-import { z } from 'zod';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/crypto";
 
-const RegisterSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(6)
-});
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const parse = RegisterSchema.safeParse(body);
-  if (!parse.success) return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
+  const { name, email, password } = await req.json();
 
-  const name = parse.data.name.trim();
-  const email = parse.data.email.trim().toLowerCase();
-  const password = parse.data.password;
+  if (!email || !password) {
+    return NextResponse.json({ error: "E-mail e senha são obrigatórios" }, { status: 400 });
+  }
 
   const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
+  if (exists) {
+    return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
+  }
 
-  const passwordHash = await hashPassword(password);
-  await prisma.user.create({ data: { name, email, passwordHash } });
+  const hashed = await hashPassword(password);
 
-  return NextResponse.json({ ok: true }, { status: 201 });
+  const created = await prisma.user.create({
+    data: { name, email, password: hashed },
+    select: { id: true, name: true, email: true, createdAt: true },
+  });
+
+  return NextResponse.json(created, { status: 201, headers: { "cache-control": "no-store" } });
 }

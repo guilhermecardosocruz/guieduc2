@@ -1,5 +1,4 @@
 import "./../styles/globals.css";
-import ApiQueueBoot from "@/components/ApiQueueBoot";
 import SwAutoUpdateClient from "@/components/SwAutoUpdateClient";
 import type { Metadata, Viewport } from "next";
 import { APP_NAME } from "@/lib/config";
@@ -31,11 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body className="min-h-dvh"><SwAutoUpdateClient />
-      <ApiQueueBoot />
       {children}</body>
     </html>
   );
 }
 
 // SW update helper
-import "@/styles/globals.css";
+import "./globals.css"

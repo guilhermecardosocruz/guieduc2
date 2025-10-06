@@ -8,92 +8,76 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-// === GUIEDUC: Turmas e Grupos ===
-model Class {
-  id        String   @id @default(uuid())
-  name      String
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relacionamento opcional com grupos via tabela de junção
-  groups   ClassGroupOnClass[]
-  students Student[]
-  lessons  Lesson[]
 }
 
 model ClassGroup {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  classes ClassGroupOnClass[]
+  classes   Class[]
 }
 
-// Tabela de junção N:N entre Class e ClassGroup
-model ClassGroupOnClass {
-  classId    String
-  groupId    String
-  assignedAt DateTime @default(now())
-
-  class Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
-  group ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  @@id([classId, groupId])
-  @@index([groupId])
-}
-
-// === GUIEDUC: Alunos, Chamadas e Presenças ===
-model Student {
-  id      String  @id @default(uuid())
-  name    String
-  cpf     String?
-  contact String?
-  classId String
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
-
+model Class {
+  id          String       @id @default(cuid())
+  name        String
+  groupId     String?
+  group       ClassGroup?  @relation(fields: [groupId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  students    Student[]
+  lessons     Lesson[]
   attendances Attendance[]
+}
 
-  @@index([classId])
+model Student {
+  id          String       @id @default(cuid())
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id])
+  name        String
+  cpf         String?
+  contact     String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  attendances Attendance[] @relation("StudentAttendances")
 }
 
 model Lesson {
-  id        String   @id @default(uuid())
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  title     String
-  content   String?
-  // --- Novos campos p/ Conteúdos ---
-  objectives   String? // Objetivos
-  activities   String? // Desenvolvimento das Atividades
-  resources    String? // Recursos Didáticos
-  bncc         String? // BNCC
-  number    Int // número sequencial por turma
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  attendances Attendance[]
+  id              String       @id @default(cuid())
+  classId         String
+  class           Class        @relation(fields: [classId], references: [id])
+  number          Int
+  title           String?
+  content         String?
+  objetivos       String?
+  desenvolvimento String?
+  recursos        String?
+  bncc            String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  attendances     Attendance[] @relation("LessonAttendances")
 
   @@unique([classId, number])
-  @@index([classId])
 }
 
 model Attendance {
-  lessonId  String
+  id      String @id @default(cuid())
+  classId String
+  class   Class  @relation(fields: [classId], references: [id])
+
+  lessonId String?
+  lesson   Lesson? @relation("LessonAttendances", fields: [lessonId], references: [id])
+
   studentId String
-  present   Boolean @default(true)
+  student   Student @relation("StudentAttendances", fields: [studentId], references: [id])
 
-  lesson  Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@id([lessonId, studentId])
-  @@index([studentId])
+  present   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

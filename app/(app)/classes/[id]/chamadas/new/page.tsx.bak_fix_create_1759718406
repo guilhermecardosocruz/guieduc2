@@ -148,7 +148,9 @@ export default function CallNewPage({
     }
   }
 
-      if (!classId) { alert("Turma não carregada."); return; }
+  async function createCall() {
+    if (!title.trim()) { alert("Informe o nome da aula."); return; }
+    if (!classId) { alert("Turma não carregada."); return; }
     setSaving(true);
 
     const attendance: Attendance[] = orderedStudents.map(s => ({ studentId: s.id, present: !!presentMap[s.id] }));
@@ -210,11 +212,11 @@ export default function CallNewPage({
             calls[idx] = { ...created, attendance };
             localStorage.setItem(lsKeyCalls(classId), JSON.stringify(calls));
   router.push(`/classes//chamadas`);
-  router.push(`/classes//chamadas`);
           }
         } catch {}
       }
       // voltar para lista
+      window.location.href = `/classes/${classId}/chamadas`;
     } finally {
       setSaving(false);
     }
@@ -258,7 +260,7 @@ export default function CallNewPage({
         <div className="mt-4">
           <button
             type="submit"
-            
+            onClick={createCall}
             disabled={!title.trim() || saving}
             className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60"
           >

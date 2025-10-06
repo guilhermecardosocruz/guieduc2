@@ -1,84 +1,49 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
-type Lesson = {
-  id: string;
-  title: string;
-  createdAt: string;
-  number?: number | null;
-  content?: string | null;
-};
-
+type Lesson = { id: string; title: string; createdAt: string; number?: number | null };
 const prefKey = (id: string) => `guieduc:class:${id}:callsOrder`;
-const lsKey   = (id: string) => `guieduc:class:${id}:calls`;
-
-function sortCalls(arr: Lesson[], ord: "asc" | "desc") {
-  const a = [...arr];
-  a.sort((x, y) => {
-    const xn = typeof x.number === "number" ? x.number : Infinity;
-    const yn = typeof y.number === "number" ? y.number : Infinity;
-    if (xn !== yn) return ord === "asc" ? xn - yn : yn - xn;
-    const xd = x.createdAt || "";
-    const yd = y.createdAt || "";
-    return ord === "asc" ? xd.localeCompare(yd) : yd.localeCompare(xd);
-  });
-  return a;
-}
-
-function mergeCalls(local: Lesson[], remote: Lesson[]) {
-  // dedup por id; quando não houver id, usa chave derivada (title+createdAt)
-  const keyOf = (c: Lesson) => c.id || `${(c.title||"").trim().toLowerCase()}#${c.createdAt||""}`;
-  const map = new Map<string, Lesson>();
-  for (const c of local) map.set(keyOf(c), c);
-  for (const c of remote) {
-    const k = keyOf(c);
-    const prev = map.get(k);
-    // preferir versão com number/createdAt/ids do servidor
-    if (!prev) map.set(k, c);
-    else {
-      map.set(k, {
-        ...prev,
-        ...c,
-        number: typeof c.number === "number" ? c.number : prev.number,
-        createdAt: c.createdAt || prev.createdAt,
-      });
-    }
-  }
-  return Array.from(map.values());
-}
+const lsKey = (id: string) => `guieduc:class:${id}:calls`;
 
 export default function CallsIndex({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const [classId, setClassId] = useState("");
   const [order, setOrder] = useState<"asc"|"desc">("desc");
   const [list, setList] = useState<Lesson[]>([]);
-  const listRef = useRef<Lesson[]>([]);
 
+  const listRef = useRef<Lesson[]>([]);
   function setListSafe(next: Lesson[]) {
     try {
-      if (JSON.stringify(listRef.current) !== JSON.stringify(next)) {
-        listRef.current = next; setList(next);
-      }
-    } catch { listRef.current = next; setList(next); }
+      const a = JSON.stringify(listRef.current);
+      const b = JSON.stringify(next);
+      if (a !== b) { listRef.current = next; setListSafe(next); }
+    } catch { listRef.current = next; setListSafe(next); }
   }
 
-  async function loadAll(id: string, ord: "asc"|"desc") {
-    // 1) local primeiro
+  function readLocal(id: string, ord: "asc"|"desc") {
     try {
-      const local: Lesson[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
-      setListSafe(sortCalls(local, ord));
-    } catch { setListSafe([]); }
+      const arr: Lesson[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+      arr.sort((a,b) => {
+        const an = a.number ?? 0, bn = b.number ?? 0;
+        if (an !== bn) return ord === "asc" ? an - bn : bn - an;
+        return ord === "asc"
+          ? (a.createdAt || "").localeCompare(b.createdAt || "")
+          : (b.createdAt || "").localeCompare(a.createdAt || "");
+      });
+      return arr;
+    } catch { return []; }
+  }
 
-    // 2) remoto e merge (silencioso se falhar)
+  async function load(id: string, ord: "asc"|"desc") {
+    setListSafe(readLocal(id, ord)); // local primeiro
     try {
       const r = await fetch(`/api/classes/${id}/chamadas?order=${ord}`, { cache: "no-store" });
       if (r.ok) {
-        const remote: Lesson[] = await r.json();
-        const local: Lesson[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
-        const merged = sortCalls(mergeCalls(local, remote), ord);
-        localStorage.setItem(lsKey(id), JSON.stringify(merged));
-        setListSafe(merged);
+        const apiList: Lesson[] = await r.json();
+        if (apiList.length > 0) setListSafe(apiList);
       }
     } catch {}
   }
@@ -90,24 +55,22 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
       const stored = (typeof window !== "undefined" ? localStorage.getItem(prefKey(id)) : null) as "asc"|"desc"|null;
       const ord = stored === "asc" ? "asc" : "desc";
       setOrder(ord);
-      loadAll(id, ord);
+      await load(id, ord);
     })();
-  }, [params]);
+  }, [params, router]);
 
   function toggleOrder() {
     const next = order === "asc" ? "desc" : "asc";
     setOrder(next);
     if (classId) {
       localStorage.setItem(prefKey(classId), next);
-      loadAll(classId, next);
+      load(classId, next);
     }
   }
 
-  const rendered = useMemo(() => sortCalls(list, order), [list, order]);
-
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      {/* título + Nova chamada */}
+      {/* 1ª linha: título + Nova chamada */}
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Chamadas</h1>
         <Link
@@ -118,7 +81,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
         </Link>
       </div>
 
-      {/* controle de ordenação */}
+      {/* 2ª linha: controle de ordenação */}
       <div className="mb-6 flex items-center gap-2">
         <span className="text-xs text-gray-500">Ordenação:</span>
         <button
@@ -131,18 +94,19 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
         </button>
       </div>
 
-      {!rendered.length ? (
+      {!list.length ? (
         <p className="text-sm text-gray-500">Nenhuma chamada criada ainda.</p>
       ) : (
         <ul className="divide-y rounded-2xl border border-gray-200 bg-white">
-          {rendered.map(c => (
+          {list.map(c => (
             <li key={c.id} className="p-0">
               <Link
                 href={`/classes/${classId}/chamadas/${c.id}`}
                 className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-gray-50"
                 title="Editar chamada"
               >
-                {typeof c.number === "number" && (
+                {/* número (se existir), sem caixinha */}
+                {typeof c.number === 'number' && (
                   <span className="text-xs tabular-nums text-gray-700">{c.number}</span>
                 )}
                 <span>

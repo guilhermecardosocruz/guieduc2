@@ -68,26 +68,6 @@ export default function ContentsIndex({ params }: { params: Promise<{ id: string
   }, [params]);
 
   async function handleAdd(data: ContentInput) {
-
-  function handleImported(rows: any[]) {
-    if (!Array.isArray(rows) || !classId) return;
-    const norm = (s:any) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    (async () => {
-      for (const raw of rows) {
-        const obj = Object.fromEntries(Object.entries(raw || {}).map(([k, v]) => [norm(k), v]));
-        const data: any = {
-          number:     obj["numero da aula"] ?? obj["numero"] ?? obj["number"],
-          title:      String(obj["titulo"] ?? obj["title"] ?? obj["título"] ?? ""),
-          content:    String(obj["conteudo da aula"] ?? obj["conteudo"] ?? obj["content"] ?? ""),
-          objectives: String(obj["objetivos"] ?? obj["objectives"] ?? ""),
-          activities: String(obj["desenvolvimento das atividades"] ?? obj["atividades"] ?? obj["activities"] ?? ""),
-          resources:  String(obj["recursos didaticos"] ?? obj["recursos"] ?? obj["resources"] ?? ""),
-          bncc:       String(obj["bncc"] ?? ""),
-        };
-        await handleAdd(data);
-      }
-    })();
-  }
     if (!classId) return;
     // POST upsert por número (a API calcula number se vazio)
     const r = await fetch(`/api/classes/${classId}/conteudos`, {
@@ -157,7 +137,7 @@ export default function ContentsIndex({ params }: { params: Promise<{ id: string
           <strong> Título</strong>, <strong>Conteúdo da Aula</strong>, <strong>Objetivos</strong>,
           <strong> Desenvolvimento das Atividades</strong>, <strong>Recursos Didáticos</strong>, <strong>BNCC</strong>.
         </p>
-        <ContentImport onAdd={handleImported} />
+        <ContentImport classId={classId} />
       </div>
     </main>
   );

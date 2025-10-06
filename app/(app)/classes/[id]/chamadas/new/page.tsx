@@ -1,29 +1,16 @@
-import { useRouter } from "next/navigation";
 'use client';
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import EditableStudentList, { Student } from "@/components/EditableStudentList";
-import AddStudentModal from "@/components/AddStudentModal";
-import StudentImport from "@/components/StudentImport";
-import ViewContentModal from "@/components/ViewContentModal";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
+type Student = { id: string; name: string };
 type Attendance = { studentId: string; present: boolean };
-type CallRecord = {
-  id: string;
-  classId: string;
-  title: string;
-  content?: string;
-  createdAt: string;
-  number?: number | null;
-  attendance: Attendance[];
-};
 
-function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
+function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 
-export default function CallNewPage({
- params }: { params: Promise<{ id: string }> }) {
+export default function CallNewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
@@ -32,162 +19,54 @@ export default function CallNewPage({
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // carregar turma + alunos (offline-first)
   useEffect(() => {
     (async () => {
       const { id } = await params;
       setClassId(id);
+
+      // tenta carregar alunos locais (offline-first)
       try {
-        const ss: Student[] = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]");
-        setStudents(Array.isArray(ss) ? ss : []);
-        // por padrão, marcar todos como presentes ao criar (ajuste se preferir false)
-        const map: Record<string, boolean> = {};
-        (Array.isArray(ss) ? ss : []).forEach(s => { map[s.id] = true; });
-        setPresentMap(map);
-      } catch {
-        setStudents([]);
-        setPresentMap({});
-      }
+        const local = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]") as Student[];
+        if (Array.isArray(local) && local.length) setStudents(local);
+      } catch {}
+
+      // tenta API (se quiser puxar seus alunos do servidor, ajuste a rota)
+      // try {
+      //   const r = await fetch(`/api/classes/${id}/students`, { cache: "no-store" });
+      //   if (r.ok) {
+      //     const data: Student[] = await r.json();
+      //     if (data?.length) {
+      //       setStudents(data);
+      //       localStorage.setItem(lsKeyStudents(id), JSON.stringify(data));
+      //     }
+      //   }
+      // } catch {}
     })();
   }, [params]);
 
-  const orderedStudents = useMemo(
-    () => [...students].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR")),
+  const ordered = useMemo(
+    () => [...students].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
     [students]
   );
 
-  // modal: adicionar aluno manualmente
-  function handleAddStudent(name: string, cpf?: string, contact?: string) {
-    const tempId = crypto.randomUUID();
-    const newStudent = { id: tempId, name, cpf, contact };
+  const createCall = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!classId || !title.trim() || saving) return;
 
-    const nextStudents = [...students, newStudent];
-    setStudents(nextStudents);
-    try { if (classId) localStorage.setItem(lsKeyStudents(classId), JSON.stringify(nextStudents)); } catch {}
-    setPresentMap(prev => ({ ...prev, [tempId]: true }));
-
-    if (classId) {
-      fetch(`/api/classes/${classId}/students`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name, cpf, contact }),
-      }).then(async (r) => {
-        if (!r.ok) return;
-        const created = await r.json();
-        if (created?.id && created.id !== tempId) {
-          setStudents(cur => cur.map(s => s.id === tempId ? { ...s, id: created.id } : s));
-          try {
-            const saved: any[] = JSON.parse(localStorage.getItem(lsKeyStudents(classId)) || "[]");
-            const updated = saved.map((s: any) => s.id === tempId ? { ...s, id: created.id } : s);
-            localStorage.setItem(lsKeyStudents(classId), JSON.stringify(updated));
-          } catch {}
-          setPresentMap(prev => {
-            const presentTemp = prev[tempId] ?? true;
-            const { [tempId]: _, ...rest } = prev;
-            return { ...rest, [created.id]: presentTemp };
-          });
-        }
-      }).catch(()=>{});
-    }
-  }
-
-  // planilha: importar CSV/XLSX
-  function handleImported(added: any[]) {
-    if (!Array.isArray(added) || added.length === 0) return;
-
-    const toAdd = added.map((a:any)=>({
-      id: a.id ?? crypto.randomUUID(),
-      name: String(a.name||"").trim(),
-      cpf: (a.cpf?.toString() ?? "").trim() || undefined,
-      contact: (a.contact?.toString() ?? "").trim() || undefined,
-    })).filter((s:any)=>s.name);
-
-    setStudents(prev=>{
-      const next = Array.isArray(prev) ? [...prev] : [];
-      for (const s of toAdd) {
-        const dup = next.find(p => p.name === s.name && (p.cpf||"") === (s.cpf||""));
-        if (!dup) next.push(s);
-      }
-      try { if (classId) localStorage.setItem(lsKeyStudents(classId), JSON.stringify(next)); } catch {}
-      return next;
-    });
-
-    setPresentMap(prev=>{
-      const base = prev || {};
-      const updated:any = { ...base };
-      for (const s of toAdd) updated[s.id] = true;
-      return updated;
-    });
-
-    if (classId) {
-      for (const s of toAdd) {
-        fetch(`/api/classes/${classId}/students`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ name: s.name, cpf: s.cpf, contact: s.contact }),
-        }).then(async r=>{
-          if(!r.ok) return;
-          const created = await r.json();
-          if(created?.id && created.id !== s.id){
-            setStudents(cur => cur.map(st => st.id===s.id ? { ...st, id: created.id } : st));
-            try {
-              const saved:any[] = JSON.parse(localStorage.getItem(lsKeyStudents(classId)) || "[]");
-              const upd = saved.map(st => st.id===s.id ? { ...st, id: created.id } : st);
-              localStorage.setItem(lsKeyStudents(classId), JSON.stringify(upd));
-            } catch {}
-            setPresentMap(prev=>{
-              const p = (prev||{})[s.id] ?? true;
-              const { [s.id]:_, ...rest } = (prev||{});
-              return { ...rest, [created.id]: p };
-            });
-          }
-        }).catch(()=>{});
-      }
-    }
-  }
-
-      if (!classId) { alert("Turma não carregada."); return; }
     setSaving(true);
+    const attendance: Attendance[] = Object.entries(presentMap).map(([studentId, present]) => ({ studentId, present }));
+    const payload = { title, content, attendance };
 
-    const attendance: Attendance[] = orderedStudents.map(s => ({ studentId: s.id, present: !!presentMap[s.id] }));
-    const nowISO = new Date().toISOString();
-    const tempId = crypto.randomUUID();
-
-    // salva local primeiro (offline-first)
     try {
-      const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
-      const tempCall: CallRecord = {
-        id: tempId,
-        classId,
-        title: title.trim(),
-        content: content.trim() || undefined,
-        createdAt: nowISO,
-        number: null,
-        attendance,
-      };
-      localStorage.setItem(lsKeyCalls(classId), JSON.stringify([tempCall, ...calls]));
-  router.push(`/classes/${classId}/chamadas`);
-    } catch {}
-
-    // tenta API
-    try {
-      
-    const r = await fetch(`/api/classes/${classId}/chamadas`, {
+      const r = await fetch(`/api/classes/${classId}/chamadas`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ title: title.trim(), content: content.trim() || undefined, attendance }),
+        body: JSON.stringify(payload),
       });
+
+      // sucesso: salva otimistamente e redireciona
       if (r.ok) {
-        const created: CallRecord = await r.json();
-    
-      try {
-        const created: any = await r.json();
-        // salva otimista no localStorage da lista
-        const key = lsKeyCalls(classId);
-        const list = JSON.parse(localStorage.getItem(key) || "[]");
+        const created = await r.json();
         const rec = {
           id: created?.id ?? crypto.randomUUID(),
           classId,
@@ -196,84 +75,99 @@ export default function CallNewPage({
           number: created?.number ?? undefined,
           createdAt: created?.createdAt ?? new Date().toISOString(),
         };
-        localStorage.setItem(key, JSON.stringify([rec, ...list]));
-      } catch {}
-      // vai para a lista de chamadas
-      router.push(`/classes//chamadas`);
-    }
-  
-        // substituir o temp pelo criado (id/number reais)
-        try {
-          const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
-          const idx = calls.findIndex(c => c.id === tempId);
-          if (idx >= 0) {
-            calls[idx] = { ...created, attendance };
-            localStorage.setItem(lsKeyCalls(classId), JSON.stringify(calls));
-  router.push(`/classes//chamadas`);
-  router.push(`/classes//chamadas`);
-          }
-        } catch {}
+        const list = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
+        localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...(Array.isArray(list)?list:[])]));
+
+        router.push(`/classes/${classId}/chamadas`);
+        return;
       }
-      // voltar para lista
+
+      // caiu aqui? trata como offline/erro
+      throw new Error("POST falhou");
+    } catch {
+      const rec = {
+        id: crypto.randomUUID(),
+        classId,
+        title,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+      const list = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
+      localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...(Array.isArray(list)?list:[])]));
+
+      router.push(`/classes/${classId}/chamadas`);
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   return (
     <main className="mx-auto max-w-md px-4 py-6">
-      {/* top bar */}
+      {/* topo */}
       <div className="mb-2 flex items-center justify-between">
         <Link href={`/classes/${classId}/chamadas`} className="text-sm text-blue-600 hover:underline">
           Voltar para Chamadas
         </Link>
-        <div /> {/* placeholder */}
+        <div />
       </div>
 
-      <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <h1 className="mb-3 text-lg font-semibold">Nova chamada</h1>
 
-        <label className="mb-2 block text-sm font-medium">Nome da aula</label>
-        <input
-          value={title}
-          onChange={(e)=>setTitle(e.target.value)}
-          className="mb-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Ex.: Aula 01 - Introdução"
-        /><ViewContentModal title={title} content={content} />
+        <form onSubmit={createCall}>
+          <label className="mb-2 block text-sm font-medium">Nome da aula</label>
+          <input
+            value={title}
+            onChange={(e)=>setTitle(e.target.value)}
+            className="mb-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Ex.: Aula 01 - Introdução"
+          />
 
-        {/* toolbar acima da lista: APENAS o modal */}
-        <div className="mb-2 flex items-center justify-end">
-          <AddStudentModal onSave={handleAddStudent} />
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-sm font-medium">Alunos ({ordered.length})</span>
+          {/* aqui você pode recolocar seu botão Conteúdo depois, se quiser */}
         </div>
 
-        <EditableStudentList
-          classId={classId}
-          students={orderedStudents}
-          setStudents={setStudents}
-          presentMap={presentMap}
-          setPresentMap={setPresentMap}
+        {/* lista simples de presença (pode trocar pelo seu EditableStudentList depois) */}
+        <ul className="mb-4 divide-y rounded-xl border">
+          {ordered.length === 0 ? (
+            <li className="p-3 text-sm text-gray-500">Nenhum aluno cadastrado.</li>
+          ) : ordered.map(s => (
+            <li key={s.id} className="flex items-center justify-between p-3">
+              <span className="text-sm">{s.name}</span>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={!!presentMap[s.id]}
+                  onChange={(e)=>setPresentMap(prev=>({ ...prev, [s.id]: e.target.checked }))}
+                />
+                Presente
+              </label>
+            </li>
+          ))}
+        </ul>
+
+        {/* conteúdo/observações opcionais */}
+        <label className="mb-2 block text-sm font-medium">Conteúdo / Observações (opcional)</label>
+        <textarea
+          value={content}
+          onChange={(e)=>setContent(e.target.value)}
+          className="mb-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          rows={4}
+          placeholder="Resumo da aula, observações, etc."
         />
 
-        {/* botão criar chamada */}
-        <div className="mt-4">
+        {/* botão criar */}
+        <div className="mt-2">
           <button
             type="submit"
-            
             disabled={!title.trim() || saving}
             className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
             {saving ? "Criando..." : "Criar chamada"}
           </button>
         </div>
-
-        {/* bloco: importar por planilha (FICA ABAIXO DO BOTÃO) */}
-        <div className="mt-6 rounded-xl border border-dashed p-3">
-          <h3 className="mb-2 text-sm font-medium">Adicionar alunos por planilha</h3>
-          <p className="mb-2 text-xs text-gray-500">
-            CSV ou XLSX com colunas: <strong>nome</strong> (obrigatório), <strong>cpf</strong> e <strong>contact</strong> (opcionais).
-          </p>
-          <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
-        </div>
+        </form>
       </div>
     </main>
   );

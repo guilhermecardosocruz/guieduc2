@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import EditableStudentList, { Student } from "@/components/EditableStudentList";import ViewContentModal from "@/components/ViewContentModal";
+import EditableStudentList, { Student } from "@/components/EditableStudentList";
+import AddStudentModal from "@/components/AddStudentModal";
+import ViewContentModal from "@/components/ViewContentModal";
 
 type Attendance = { studentId: string; present: boolean };
 type CallRecord = {
@@ -217,11 +219,7 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 </div>
 
 
-        <div className="mb-2 flex items-center justify-end">
-  <AddStudentModal onSave={(name, cpf, contact) => handleAddStudent(name, cpf, contact)} />
-</div>
-
-<EditableStudentList
+        <EditableStudentList
           classId={classId}
           students={orderedStudents}
           setStudents={setStudents}

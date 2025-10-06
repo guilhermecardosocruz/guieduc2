@@ -1,124 +1,143 @@
 'use client';
+
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import AddContentModal, { ContentInput } from "@/components/AddContentModal";
 import ContentImport from "@/components/ContentImport";
 
-type ContentRow = {
-  id: string; number: number; title: string;
-  content?: string; objectives?: string; activities?: string; resources?: string; bncc?: string;
-  createdAt: string;
+type ContentItem = {
+  id?: string;
+  number?: number|null;
+  title: string;
+  content?: string|null;
+  objectives?: string|null;
+  activities?: string|null;
+  resources?: string|null;
+  bncc?: string|null;
+  createdAt?: string;
 };
 
-export default function ContentsPage({ params }: { params: Promise<{ id: string }> }) {
+const lsKey = (id: string) => `guieduc:class:${id}:contents`;
+
+function sortContents(arr: ContentItem[]) {
+  const a = [...arr];
+  a.sort((x,y) => {
+    const xn = typeof x.number === "number" ? x.number : Infinity;
+    const yn = typeof y.number === "number" ? y.number : Infinity;
+    if (xn !== yn) return xn - yn;
+    return (x.createdAt||"").localeCompare(y.createdAt||"");
+  });
+  return a;
+}
+
+export default function ContentsIndex({ params }: { params: Promise<{ id: string }> }) {
   const [classId, setClassId] = useState("");
-  const [items, setItems] = useState<ContentRow[]>([]);
-  const [order, setOrder] = useState<"asc"|"desc">("asc");
+  const [list, setList] = useState<ContentItem[]>([]);
+  const ref = useRef<ContentItem[]>([]);
+
+  function setSafe(next: ContentItem[]) {
+    try { if (JSON.stringify(ref.current) !== JSON.stringify(next)) { ref.current = next; setList(next); } }
+    catch { ref.current = next; setList(next); }
+  }
+
+  async function load(id: string) {
+    // local primeiro
+    try {
+      const local: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+      setSafe(sortContents(local));
+    } catch { setSafe([]); }
+
+    // remoto
+    try {
+      const r = await fetch(`/api/classes/${id}/conteudos`, { cache: "no-store" });
+      if (r.ok) {
+        const remote: ContentItem[] = await r.json();
+        const merged = sortContents(remote);
+        localStorage.setItem(lsKey(id), JSON.stringify(merged));
+        setSafe(merged);
+      }
+    } catch {}
+  }
 
   useEffect(() => {
     (async () => {
       const { id } = await params;
       setClassId(id);
-      try {
-        const r = await fetch(`/api/classes/${id}/conteudos`, { cache: "no-store" });
-        if (r.ok) setItems(await r.json());
-      } catch {}
+      load(id);
     })();
   }, [params]);
 
-  const list = useMemo(() => {
-    const arr = [...items];
-    arr.sort((a,b)=> order==="asc" ? a.number-b.number : b.number-a.number);
-    return arr;
-  }, [items, order]);
-
-  async function addManual(input: ContentInput){
+  async function handleAdd(data: ContentInput) {
+    if (!classId) return;
+    // POST upsert por número (a API calcula number se vazio)
     const r = await fetch(`/api/classes/${classId}/conteudos`, {
-      method: "POST", headers: { "content-type": "application/json" }, credentials: "include",
-      body: JSON.stringify(input),
-    });
-    if (r.ok) {
-      const saved: ContentRow = await r.json();
-      setItems(cur => {
-        const idx = cur.findIndex(x => x.id === saved.id);
-        if (idx >= 0) { const next = [...cur]; next[idx] = saved; return next; }
-        return [...cur, saved];
-      });
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(data),
+    }).catch(()=>null);
+
+    // salva no local para aparecer já
+    const cur: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
+    if (r && r.ok) {
+      const saved: ContentItem = await r.json();
+      const next = sortContents([saved, ...cur.filter(c => !(typeof c.number==='number' && c.number===saved.number))]);
+      localStorage.setItem(lsKey(classId), JSON.stringify(next));
+      setSafe(next);
+    } else {
+      const temp: ContentItem = {
+        id: crypto.randomUUID(),
+        title: data.title || `Aula`,
+        content: data.content || "",
+        objectives: data.objectives || "",
+        activities: data.activities || "",
+        resources: data.resources || "",
+        bncc: data.bncc || "",
+        createdAt: new Date().toISOString(),
+      };
+      const next = sortContents([temp, ...cur]);
+      localStorage.setItem(lsKey(classId), JSON.stringify(next));
+      setSafe(next);
     }
   }
 
-  async function importRows(rows: any[]){
-    const valid = (rows||[]).filter((r:any) => Number(r.number) > 0);
-    if (!valid.length) { alert("Nenhuma linha válida."); return; }
-    const r = await fetch(`/api/classes/${classId}/conteudos/import`, {
-      method: "POST", headers: { "content-type": "application/json" }, credentials: "include",
-      body: JSON.stringify(valid),
-    });
-    if (r.ok) {
-      const list = await (await fetch(`/api/classes/${classId}/conteudos`, { cache: "no-store" })).json();
-      setItems(list);
-      alert(`Importadas ${valid.length} linha(s).`);
-    }
-  }
+  const rendered = useMemo(() => sortContents(list), [list]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-3 flex items-center justify-between">
-        <Link href={`/classes/${classId}`} className="text-sm text-blue-600 hover:underline">Voltar para Turma</Link>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Ordem:</span>
-          <button onClick={()=>setOrder(prev=>prev==="asc"?"desc":"asc")}
-            className="rounded-xl border px-3 py-1 text-sm hover:border-blue-500 hover:text-blue-600">
-            {order==="asc"?"1 → 99":"99 → 1"}
-          </button>
-        </div>
+    <main className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mb-2 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Conteúdos</h1>
+        <AddContentModal onSave={handleAdd} />
       </div>
 
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Conteúdos</h1>
-        <AddContentModal onSave={addManual} />
-      </div>
-
-      {!list.length ? (
-        <p className="text-sm text-gray-500">Nenhum conteúdo cadastrado.</p>
+      {!rendered.length ? (
+        <p className="text-sm text-gray-500">Nenhum conteúdo cadastrado ainda.</p>
       ) : (
-        <div className="overflow-auto rounded-2xl border">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="p-3 w-20">Aula</th>
-                <th className="p-3 w-64">Título</th>
-                <th className="p-3 min-w-[16rem]">Conteúdo da Aula</th>
-                <th className="p-3 min-w-[14rem]">Objetivos</th>
-                <th className="p-3 min-w-[18rem]">Desenvolvimento das Atividades</th>
-                <th className="p-3 min-w-[14rem]">Recursos Didáticos</th>
-                <th className="p-3 min-w-[10rem]">BNCC</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {list.map(row=>(
-                <tr key={row.id} className="align-top">
-                  <td className="p-3 tabular-nums">{row.number}</td>
-                  <td className="p-3">{row.title}</td>
-                  <td className="p-3 whitespace-pre-wrap">{row.content}</td>
-                  <td className="p-3 whitespace-pre-wrap">{row.objectives}</td>
-                  <td className="p-3 whitespace-pre-wrap">{row.activities}</td>
-                  <td className="p-3 whitespace-pre-wrap">{row.resources}</td>
-                  <td className="p-3 whitespace-pre-wrap">{row.bncc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y rounded-2xl border border-gray-200 bg-white">
+          {rendered.map(c => (
+            <li key={(c.number ?? c.id) as any} className="p-0">
+              <Link
+                href={`/classes/${classId}/conteudos/${c.number ?? 0}`}
+                className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-gray-50"
+                title="Editar conteúdo"
+              >
+                {typeof c.number === "number" && (
+                  <span className="text-xs tabular-nums text-gray-700">{c.number}</span>
+                )}
+                <span>{c.title || "Sem título"}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
 
       <div className="mt-6 rounded-xl border border-dashed p-3">
-        <h3 className="mb-2 text-sm font-medium">Importar por planilha</h3>
+        <h3 className="mb-2 text-sm font-medium">Adicionar conteúdos por planilha</h3>
         <p className="mb-2 text-xs text-gray-500">
-          CSV ou XLSX com colunas: <strong>numero da Aula</strong>, <strong>Título</strong>, <strong>Conteúdo da Aula</strong>,
-          <strong> Objetivos</strong>, <strong>Desenvolvimento das Atividades</strong>, <strong>Recursos Didáticos</strong>, <strong>BNCC</strong>.
+          CSV ou XLSX com colunas: <strong>Número da Aula</strong> (opcional),
+          <strong> Título</strong>, <strong>Conteúdo da Aula</strong>, <strong>Objetivos</strong>,
+          <strong> Desenvolvimento das Atividades</strong>, <strong>Recursos Didáticos</strong>, <strong>BNCC</strong>.
         </p>
-        <ContentImport onAdd={importRows} />
+        <ContentImport classId={classId} />
       </div>
     </main>
   );

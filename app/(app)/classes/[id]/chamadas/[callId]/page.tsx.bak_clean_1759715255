@@ -214,7 +214,19 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
           <div className="mb-2 flex items-center justify-end">
 
-          </div></div>
+          </div>
+
+    sprintf("%s<div className="mb-3">
+%s
+%s</div>
+%s",
+      
+          , 
+          , 
+          , 
+          <AddStudentModal onSave={handleAddStudent} />)
+  
+        </div>
 <div className="mb-2 flex items-center justify-end">
 </div>
 

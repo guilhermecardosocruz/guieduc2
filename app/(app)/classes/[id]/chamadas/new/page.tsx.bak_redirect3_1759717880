@@ -211,7 +211,6 @@ export default function CallNewPage({
           if (idx >= 0) {
             calls[idx] = { ...created, attendance };
             localStorage.setItem(lsKeyCalls(classId), JSON.stringify(calls));
-  router.push(`/classes//chamadas`);
           }
         } catch {}
       }
@@ -259,7 +258,7 @@ export default function CallNewPage({
         {/* botão criar chamada */}
         <div className="mt-4">
           <button
-            type="submit"
+            type="button"
             onClick={createCall}
             disabled={!title.trim() || saving}
             className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60"

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Lesson = { id: string; title: string; createdAt: string; number?: number | null };
@@ -13,15 +13,6 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
   const [classId, setClassId] = useState("");
   const [order, setOrder] = useState<"asc"|"desc">("desc");
   const [list, setList] = useState<Lesson[]>([]);
-
-  const listRef = useRef<Lesson[]>([]);
-  function setListSafe(next: Lesson[]) {
-    try {
-      const a = JSON.stringify(listRef.current);
-      const b = JSON.stringify(next);
-      if (a !== b) { listRef.current = next; setListSafe(next); }
-    } catch { listRef.current = next; setListSafe(next); }
-  }
 
   function readLocal(id: string, ord: "asc"|"desc") {
     try {
@@ -38,12 +29,12 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
   }
 
   async function load(id: string, ord: "asc"|"desc") {
-    setListSafe(readLocal(id, ord)); // local primeiro
+    setList(readLocal(id, ord)); // local primeiro
     try {
       const r = await fetch(`/api/classes/${id}/chamadas?order=${ord}`, { cache: "no-store" });
       if (r.ok) {
         const apiList: Lesson[] = await r.json();
-        if (apiList.length > 0) setListSafe(apiList);
+        if (apiList.length > 0) setList(apiList);
       }
     } catch {}
   }
@@ -56,6 +47,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
       const ord = stored === "asc" ? "asc" : "desc";
       setOrder(ord);
       await load(id, ord);
+      setTimeout(() => router.refresh(), 50);
     })();
   }, [params, router]);
 

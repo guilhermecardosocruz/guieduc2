@@ -66,7 +66,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
   async function loadAll(id: string, ord: "asc"|"desc") {
     // 1) local primeiro
     try {
-      const local: Lesson[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+      const local: Lesson[] = null // offline-off || "[]");
       setListSafe(sortCalls(local, ord));
     } catch { setListSafe([]); }
 
@@ -75,7 +75,7 @@ export default function CallsIndex({ params }: { params: Promise<{ id: string }>
       const r = await fetch(`/api/classes/${id}/chamadas?order=${ord}`, { cache: "no-store" });
       if (r.ok) {
         const remote: Lesson[] = await r.json();
-        const local: Lesson[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+        const local: Lesson[] = null // offline-off || "[]");
         const merged = sortCalls(mergeCalls(local, remote), ord);
         localStorage.setItem(lsKey(id), JSON.stringify(merged));
         setListSafe(merged);

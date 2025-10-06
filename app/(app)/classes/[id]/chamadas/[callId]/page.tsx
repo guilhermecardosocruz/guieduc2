@@ -18,8 +18,6 @@ type Lesson = {
   createdAt?: string;
 };
 
-function lsKeyCalls(classId: string)    { return `guieduc:class:${classId}:calls`; }
-function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 
 export default function CallEditPage({ params }: { params: Promise<{ id: string; callId: string }> }) {
   const router = useRouter();
@@ -45,13 +43,13 @@ export default function CallEditPage({ params }: { params: Promise<{ id: string;
 
       // alunos locais
       try {
-        const ss: Student[] = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]");
+        const ss: Student[] = null // offline-off || "[]");
         if (Array.isArray(ss)) setStudents(ss);
       } catch {}
 
       // chamada local (para aparecer instantâneo)
       try {
-        const calls: Lesson[] = JSON.parse(localStorage.getItem(lsKeyCalls(id)) || "[]");
+        const calls: Lesson[] = null // offline-off || "[]");
         const found = calls.find(c => c.id === callId);
         if (found) {
           setTitle(found.title || "");

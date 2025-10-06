@@ -11,8 +11,6 @@ import ViewContentModal from "@/components/ViewContentModal";
 
 type Attendance = { studentId: string; present: boolean };
 
-function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
-function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
 
 export default function CallNewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -29,7 +27,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
       const { id } = await params;
       setClassId(id);
       try {
-        const local = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]");
+        const local = null // offline-off || "[]");
         if (Array.isArray(local)) setStudents(local);
       } catch {}
     })();

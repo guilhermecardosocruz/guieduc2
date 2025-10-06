@@ -28,7 +28,7 @@ export default function ContentsPage({ params }: { params: Promise<{ id: string 
       const { id } = await params;
       setClassId(id);
       try {
-        const arr: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+        const arr: ContentItem[] = null // offline-off || "[]");
         setList(
           arr
             .filter(x => typeof x?.number === "number")
@@ -44,7 +44,7 @@ export default function ContentsPage({ params }: { params: Promise<{ id: string 
     // Normaliza cabeçalhos comuns (pt/en)
     const norm = (s: any) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-    const current: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
+    const current: ContentItem[] = null // offline-off || "[]");
     const map = new Map<number, ContentItem>(current.map(i => [i.number, i]));
 
     for (const raw of rows) {
@@ -81,7 +81,7 @@ export default function ContentsPage({ params }: { params: Promise<{ id: string 
           <DeleteAllContentsButton classId={classId} onDeleted={() => setList([])} />
           <AddContentModal onSave={(c:any) => {
             try {
-              const arr: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
+              const arr: ContentItem[] = null // offline-off || "[]");
               const filtered = arr.filter(i => i.number !== c?.number);
               const next = [c, ...filtered].sort((a,b) => a.number - b.number);
               localStorage.setItem(lsKey(classId), JSON.stringify(next));

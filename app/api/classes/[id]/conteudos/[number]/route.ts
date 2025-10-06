@@ -19,11 +19,11 @@ export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
   const n = Number(number);
   if (!Number.isFinite(n)) return json({ ok: false, error: "number inválido" }, 400);
 
-  // Preferível se existir unique composto (classId, number)
   const item = await prisma.lesson.findFirst({
     where: { classId: id, number: n },
   });
 
+  if (!item) return json({ ok: false, error: "Conteúdo não encontrado" }, 404);
   return json(item);
 }
 
@@ -35,12 +35,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<Params> }) {
 
   const data = await req.json();
 
-  // Busca por (classId, number), depois atualiza por id (mais seguro)
   const existing = await prisma.lesson.findFirst({
     where: { classId: id, number: n },
     select: { id: true },
   });
-
   if (!existing) return json({ ok: false, error: "Conteúdo não encontrado" }, 404);
 
   const updated = await prisma.lesson.update({
@@ -61,7 +59,6 @@ export async function DELETE(_req: Request, ctx: { params: Promise<Params> }) {
     where: { classId: id, number: n },
     select: { id: true },
   });
-
   if (!existing) return json({ ok: false, error: "Conteúdo não encontrado" }, 404);
 
   const deleted = await prisma.lesson.delete({

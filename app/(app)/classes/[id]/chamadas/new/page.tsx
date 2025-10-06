@@ -1,14 +1,18 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Student = { id: string; name: string };
+import EditableStudentList, { Student } from "@/components/EditableStudentList";
+import AddStudentModal from "@/components/AddStudentModal";
+import StudentImport from "@/components/StudentImport";
+import ViewContentModal from "@/components/ViewContentModal";
+
 type Attendance = { studentId: string; present: boolean };
 
-function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
 function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
+function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
 
 export default function CallNewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -19,42 +23,51 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // carregar id e alunos locais (offline-first)
   useEffect(() => {
     (async () => {
       const { id } = await params;
       setClassId(id);
-
-      // tenta carregar alunos locais (offline-first)
       try {
-        const local = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]") as Student[];
-        if (Array.isArray(local) && local.length) setStudents(local);
+        const local = JSON.parse(localStorage.getItem(lsKeyStudents(id)) || "[]");
+        if (Array.isArray(local)) setStudents(local);
       } catch {}
-
-      // tenta API (se quiser puxar seus alunos do servidor, ajuste a rota)
-      // try {
-      //   const r = await fetch(`/api/classes/${id}/students`, { cache: "no-store" });
-      //   if (r.ok) {
-      //     const data: Student[] = await r.json();
-      //     if (data?.length) {
-      //       setStudents(data);
-      //       localStorage.setItem(lsKeyStudents(id), JSON.stringify(data));
-      //     }
-      //   }
-      // } catch {}
     })();
   }, [params]);
 
-  const ordered = useMemo(
-    () => [...students].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+  const orderedStudents = useMemo(
+    () => [...students].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
     [students]
   );
 
+  // adicionar aluno (modal)
+  function handleAddStudent({ name, cpf, contact }: { name: string; cpf?: string; contact?: string }) {
+    const s: Student = { id: crypto.randomUUID(), name, cpf, contact };
+    const next = [...students, s];
+    setStudents(next);
+    setPresentMap(pm => ({ ...pm, [s.id]: true }));
+    if (classId) localStorage.setItem(lsKeyStudents(classId), JSON.stringify(next));
+  }
+
+  // importação por planilha
+  function handleImported(list: Student[]) {
+    if (!list?.length) return;
+    const dedup = new Map<string, Student>();
+    [...students, ...list].forEach(s => dedup.set((s.name || "").trim().toLowerCase() + (s.cpf || ""), s));
+    const merged = Array.from(dedup.values());
+    setStudents(merged);
+    if (classId) localStorage.setItem(lsKeyStudents(classId), JSON.stringify(merged));
+  }
+
+  // criar chamada (submit controlado + redirect)
   const createCall = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!classId || !title.trim() || saving) return;
 
     setSaving(true);
-    const attendance: Attendance[] = Object.entries(presentMap).map(([studentId, present]) => ({ studentId, present }));
+    const attendance: Attendance[] = Object.entries(presentMap).map(
+      ([studentId, present]) => ({ studentId, present })
+    );
     const payload = { title, content, attendance };
 
     try {
@@ -64,7 +77,9 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         body: JSON.stringify(payload),
       });
 
-      // sucesso: salva otimistamente e redireciona
+      const key = lsKeyCalls(classId);
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+
       if (r.ok) {
         const created = await r.json();
         const rec = {
@@ -75,16 +90,14 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
           number: created?.number ?? undefined,
           createdAt: created?.createdAt ?? new Date().toISOString(),
         };
-        const list = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
-        localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...(Array.isArray(list)?list:[])]));
-
+        localStorage.setItem(key, JSON.stringify([rec, ...(Array.isArray(list) ? list : [])]));
         router.push(`/classes/${classId}/chamadas`);
         return;
       }
-
-      // caiu aqui? trata como offline/erro
-      throw new Error("POST falhou");
+      throw new Error("post failed");
     } catch {
+      const key = lsKeyCalls(classId);
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
       const rec = {
         id: crypto.randomUUID(),
         classId,
@@ -92,9 +105,7 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         content,
         createdAt: new Date().toISOString(),
       };
-      const list = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");
-      localStorage.setItem(lsKeyCalls(classId), JSON.stringify([rec, ...(Array.isArray(list)?list:[])]));
-
+      localStorage.setItem(key, JSON.stringify([rec, ...(Array.isArray(list) ? list : [])]));
       router.push(`/classes/${classId}/chamadas`);
     } finally {
       setSaving(false);
@@ -115,58 +126,55 @@ export default function CallNewPage({ params }: { params: Promise<{ id: string }
         <h1 className="mb-3 text-lg font-semibold">Nova chamada</h1>
 
         <form onSubmit={createCall}>
+          {/* Nome da aula */}
           <label className="mb-2 block text-sm font-medium">Nome da aula</label>
           <input
             value={title}
             onChange={(e)=>setTitle(e.target.value)}
-            className="mb-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            className="mb-3 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Ex.: Aula 01 - Introdução"
           />
 
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm font-medium">Alunos ({ordered.length})</span>
-          {/* aqui você pode recolocar seu botão Conteúdo depois, se quiser */}
-        </div>
+          {/* Linha: Conteúdo (modal) + Adicionar aluno (modal) */}
+          <div className="mb-3 flex items-center justify-between">
+            <ViewContentModal title={title} content={content} />
+            <AddStudentModal onSave={(name, cpf, contact) => handleAddStudent({ name, cpf, contact })} />
+          </div>
 
-        {/* lista simples de presença (pode trocar pelo seu EditableStudentList depois) */}
-        <ul className="mb-4 divide-y rounded-xl border">
-          {ordered.length === 0 ? (
-            <li className="p-3 text-sm text-gray-500">Nenhum aluno cadastrado.</li>
-          ) : ordered.map(s => (
-            <li key={s.id} className="flex items-center justify-between p-3">
-              <span className="text-sm">{s.name}</span>
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={!!presentMap[s.id]}
-                  onChange={(e)=>setPresentMap(prev=>({ ...prev, [s.id]: e.target.checked }))}
-                />
-                Presente
-              </label>
-            </li>
-          ))}
-        </ul>
+          {/* Lista editável de alunos (com salvar/cancelar/mais informações) */}
+          <EditableStudentList
+            classId={classId}
+            students={orderedStudents}
+            setStudents={setStudents}
+            presentMap={presentMap}
+            setPresentMap={setPresentMap}
+          />
 
-        {/* conteúdo/observações opcionais */}
-        <label className="mb-2 block text-sm font-medium">Conteúdo / Observações (opcional)</label>
-        <textarea
-          value={content}
-          onChange={(e)=>setContent(e.target.value)}
-          className="mb-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          rows={4}
-          placeholder="Resumo da aula, observações, etc."
-        />
+          {/* Botão Criar chamada */}
+          <div className="mt-4">
+            <button
+              type="submit"
+              disabled={!title.trim() || saving}
+              className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {saving ? "Criando..." : "Criar chamada"}
+            </button>
+            <Link
+              href={`/classes/${classId}/chamadas`}
+              className="ml-3 inline-block rounded-2xl border px-4 py-3 text-sm hover:bg-gray-50"
+            >
+              Cancelar
+            </Link>
+          </div>
 
-        {/* botão criar */}
-        <div className="mt-2">
-          <button
-            type="submit"
-            disabled={!title.trim() || saving}
-            className="rounded-2xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:opacity-60"
-          >
-            {saving ? "Criando..." : "Criar chamada"}
-          </button>
-        </div>
+          {/* Bloco: adicionar alunos por planilha (abaixo do botão) */}
+          <div className="mt-6 rounded-xl border border-dashed p-3">
+            <h3 className="mb-2 text-sm font-medium">Adicionar alunos por planilha</h3>
+            <p className="mb-2 text-xs text-gray-500">
+              CSV ou XLSX com colunas: <strong>nome</strong> (obrigatório), <strong>cpf</strong> e <strong>contact</strong> (opcionais).
+            </p>
+            <StudentImport classId={classId} existing={orderedStudents} onAdd={handleImported} />
+          </div>
         </form>
       </div>
     </main>

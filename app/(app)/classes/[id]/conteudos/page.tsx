@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddContentModal, { ContentInput } from "@/components/AddContentModal";
+import DeleteAllContentsButton from "@/components/DeleteAllContentsButton";
 import ContentImport from "@/components/ContentImport";
 
 type ContentItem = {

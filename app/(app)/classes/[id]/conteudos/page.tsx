@@ -1,176 +1,130 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import AddContentModal, { ContentInput } from "@/components/AddContentModal";
+import { useEffect, useState } from "react";
+import AddContentModal from "@/components/AddContentModal";
 import DeleteAllContentsButton from "@/components/DeleteAllContentsButton";
 import ContentImport from "@/components/ContentImport";
 
 type ContentItem = {
-  id?: string;
-  number?: number|null;
+  number: number;
   title: string;
-  content?: string|null;
-  objectives?: string|null;
-  activities?: string|null;
-  resources?: string|null;
-  bncc?: string|null;
+  content?: string | null;
+  objectives?: string | null;
+  activities?: string | null;
+  resources?: string | null;
+  bncc?: string | null;
   createdAt?: string;
 };
 
 const lsKey = (id: string) => `guieduc:class:${id}:contents`;
 
-function sortContents(arr: ContentItem[]) {
-  const a = [...arr];
-  a.sort((x,y) => {
-    const xn = typeof x.number === "number" ? x.number : Infinity;
-    const yn = typeof y.number === "number" ? y.number : Infinity;
-    if (xn !== yn) return xn - yn;
-    return (x.createdAt||"").localeCompare(y.createdAt||"");
-  });
-  return a;
-}
-
-export default function ContentsIndex({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
+export default function ContentsPage({ params }: { params: Promise<{ id: string }> }) {
   const [classId, setClassId] = useState("");
   const [list, setList] = useState<ContentItem[]>([]);
-  const ref = useRef<ContentItem[]>([]);
-
-  function setSafe(next: ContentItem[]) {
-    try { if (JSON.stringify(ref.current) !== JSON.stringify(next)) { ref.current = next; setList(next); } }
-    catch { ref.current = next; setList(next); }
-  }
-
-  async function load(id: string) {
-    // local primeiro
-    try {
-      const local: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
-      setSafe(sortContents(local));
-    } catch { setSafe([]); }
-
-    // remoto
-    try {
-      const r = await fetch(`/api/classes/${id}/conteudos`, { cache: "no-store" });
-      if (r.ok) {
-        const remote: ContentItem[] = await r.json();
-        const merged = sortContents(remote);
-        localStorage.setItem(lsKey(id), JSON.stringify(merged));
-        setSafe(merged);
-      }
-    } catch {}
-  }
 
   useEffect(() => {
     (async () => {
       const { id } = await params;
       setClassId(id);
-      load(id);
+      try {
+        const arr: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(id)) || "[]");
+        setList(
+          arr
+            .filter(x => typeof x?.number === "number")
+            .sort((a,b) => (a.number||0) - (b.number||0))
+        );
+      } catch {
+        setList([]);
+      }
     })();
   }, [params]);
 
-  async function handleAdd(data: ContentInput) {
-    if (!classId) return;
-    const r = await fetch(`/api/classes/${classId}/conteudos`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(data),
-    }).catch(()=>null);
-
-    const cur: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
-    if (r && r.ok) {
-      const saved: ContentItem = await r.json();
-      const next = sortContents([saved, ...cur.filter(c => !(typeof c.number==='number' && c.number===saved.number))]);
-      localStorage.setItem(lsKey(classId), JSON.stringify(next));
-      setSafe(next);
-    } else {
-      const temp: ContentItem = {
-        id: crypto.randomUUID(),
-        title: data.title || `Aula`,
-        content: data.content || "",
-        objectives: data.objectives || "",
-        activities: data.activities || "",
-        resources: data.resources || "",
-        bncc: data.bncc || "",
-        createdAt: new Date().toISOString(),
-      };
-      const next = sortContents([temp, ...cur]);
-      localStorage.setItem(lsKey(classId), JSON.stringify(next));
-      setSafe(next);
-    }
-  }
-
   function handleImported(rows: any[]) {
-    if (!Array.isArray(rows) || !classId) return;
-    const norm = (s:any) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
-    (async () => {
-      for (const raw of rows) {
-        const obj = Object.fromEntries(Object.entries(raw || {}).map(([k, v]) => [norm(k), v]));
-        const data: ContentInput = {
-          number:     (obj["numero da aula"] ?? obj["numero"] ?? obj["number"]) as any,
-          title:      String(obj["titulo"] ?? obj["title"] ?? obj["título"] ?? ""),
-          content:    String(obj["conteudo da aula"] ?? obj["conteudo"] ?? obj["content"] ?? ""),
-          objectives: String(obj["objetivos"] ?? obj["objectives"] ?? ""),
-          activities: String(obj["desenvolvimento das atividades"] ?? obj["atividades"] ?? obj["activities"] ?? ""),
-          resources:  String(obj["recursos didaticos"] ?? obj["recursos"] ?? obj["resources"] ?? ""),
-          bncc:       String(obj["bncc"] ?? ""),
-        };
-        await handleAdd(data);
-      }
-    })();
-  }
+    // Normaliza cabeçalhos comuns (pt/en)
+    const norm = (s: any) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  const rendered = useMemo(() => sortContents(list), [list]);
+    const current: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
+    const map = new Map<number, ContentItem>(current.map(i => [i.number, i]));
+
+    for (const raw of rows) {
+      const obj = Object.fromEntries(Object.entries(raw || {}).map(([k, v]) => [norm(k), v]));
+
+      const numRaw = obj["numero da aula"] ?? obj["numero"] ?? obj["number"];
+      const number = Number(numRaw);
+      if (!Number.isFinite(number) || number <= 0) continue;
+
+      const item: ContentItem = {
+        number,
+        title: String(obj["titulo"] ?? obj["title"] ?? obj["título"] ?? `Aula ${number}`),
+        content: String(obj["conteudo da aula"] ?? obj["conteudo"] ?? obj["content"] ?? ""),
+        objectives: String(obj["objetivos"] ?? obj["objectives"] ?? ""),
+        activities: String(obj["desenvolvimento das atividades"] ?? obj["atividades"] ?? obj["activities"] ?? ""),
+        resources: String(obj["recursos didaticos"] ?? obj["recursos"] ?? obj["resources"] ?? ""),
+        bncc: String(obj["bncc"] ?? ""),
+      };
+
+      map.set(number, item);
+    }
+
+    const next = Array.from(map.values()).sort((a,b) => a.number - b.number);
+    localStorage.setItem(lsKey(classId), JSON.stringify(next));
+    setList(next);
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-2 flex items-center justify-between">
+      {/* header: título + ações */}
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Conteúdos</h1>
-        <AddContentModal onSave={handleAdd} />
+        <div className="flex items-center gap-2">
+          <DeleteAllContentsButton classId={classId} onDeleted={() => setList([])} />
+          <AddContentModal onSave={(c:any) => {
+            try {
+              const arr: ContentItem[] = JSON.parse(localStorage.getItem(lsKey(classId)) || "[]");
+              const filtered = arr.filter(i => i.number !== c?.number);
+              const next = [c, ...filtered].sort((a,b) => a.number - b.number);
+              localStorage.setItem(lsKey(classId), JSON.stringify(next));
+              setList(next);
+            } catch {}
+          }} />
+        </div>
       </div>
 
-      {!rendered.length ? (
-        <p className="text-sm text-gray-500">Nenhum conteúdo cadastrado ainda.</p>
+      {/* tabela/lista */}
+      {!list.length ? (
+        <p className="text-sm text-gray-500">Nenhum conteúdo cadastrado.</p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-500">
-              <tr>
-                <th className="px-4 py-2">Aula</th>
-                <th className="px-4 py-2">Título</th>
-                <th className="px-4 py-2">Conteúdo da Aula</th>
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr className="text-left">
+                <th className="px-4 py-3">Aula</th>
+                <th className="px-4 py-3">Título</th>
+                <th className="px-4 py-3">Conteúdo</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rendered.map(c => {
-                const rowClickable = typeof c.number === "number";
-                const go = () => { if (rowClickable) router.push(`/classes/${classId}/conteudos/${c.number}`); };
-                return (
-                  <tr
-                    key={(c.number ?? c.id) as any}
-                    onClick={go}
-                    className={`cursor-pointer hover:bg-gray-50 ${rowClickable ? '' : 'opacity-70 cursor-not-allowed'}`}
-                    role="link"
-                    tabIndex={rowClickable ? 0 : -1}
-                  >
-                    <td className="px-4 py-3 tabular-nums">{typeof c.number==='number' ? c.number : ''}</td>
-                    <td className="px-4 py-3">{c.title || "Sem título"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.content || ""}</td>
-                  </tr>
-                );
-              })}
+              {list.map((c) => (
+                <tr key={c.number}
+                    onClick={() => typeof c.number==="number" && (location.href = `/classes/${classId}/conteudos/${c.number}`)}
+                    className={`hover:bg-gray-50 ${typeof c.number==="number" ? "cursor-pointer" : "opacity-70 cursor-not-allowed"}`}>
+                  <td className="px-4 py-3 tabular-nums">{c.number}</td>
+                  <td className="px-4 py-3">{c.title || `Aula ${c.number}`}</td>
+                  <td className="px-4 py-3 truncate max-w-[420px]">{c.content || "-"}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* importar por planilha */}
       <div className="mt-6 rounded-xl border border-dashed p-3">
-        <h3 className="mb-2 text-sm font-medium">Importar por planilha</h3>
+        <h3 className="mb-2 text-sm font-medium">Adicionar conteúdos por planilha</h3>
         <p className="mb-2 text-xs text-gray-500">
-          CSV ou XLSX com colunas: <strong>numero da Aula</strong> (opcional),
-          <strong> Título</strong>, <strong>Conteúdo da Aula</strong>, <strong>Objetivos</strong>,
-          <strong> Desenvolvimento das Atividades</strong>, <strong>Recursos Didáticos</strong>, <strong>BNCC</strong>.
+          CSV/XLSX com colunas: <strong>Número da Aula</strong>, <strong>Título</strong>, <strong>Conteúdo da Aula</strong>,
+          <strong> Objetivos</strong>, <strong>Desenvolvimento das Atividades</strong>, <strong>Recursos Didáticos</strong>, <strong>BNCC</strong>.
         </p>
         <ContentImport onAdd={handleImported} />
       </div>

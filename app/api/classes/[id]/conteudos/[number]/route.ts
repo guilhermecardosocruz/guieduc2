@@ -1,65 +1,72 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type CtxNum = { params: Promise<{ id: string; number: string }> };
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(_req: Request, { params }: CtxNum) {
-  try {
-    const { id, number } = await params;
-    const n = Number(number);
-    if (!id || !Number.isFinite(n)) return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
+type Params = { id: string; number: string };
 
-    const item = await prisma.lesson.findUnique({
-      where: { classId_number: { classId: id, number: n } },
-      select: { number: true, title: true, content: true, objectives: true, activities: true, resources: true, bncc: true },
-    });
-    if (!item) return new NextResponse(null, { status: 404 });
-    return NextResponse.json(item, { status: 200, headers: { "Cache-Control": "no-store" } });
-  } catch (e) {
-    console.error("[GET conteudos/:number]", e);
-    return NextResponse.json({ error: "Erro interno." }, { status: 500 });
-  }
+function json(data: any, status = 200) {
+  return new NextResponse(JSON.stringify(data), {
+    status,
+    headers: { "cache-control": "no-store", "content-type": "application/json" },
+  });
 }
 
-export async function PATCH(req: Request, { params }: CtxNum) {
-  try {
-    const { id, number } = await params;
-    const n = Number(number);
-    if (!id || !Number.isFinite(n)) return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
+// GET /api/classes/[id]/conteudos/[number]
+export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
+  const { id, number } = await ctx.params;
+  const n = Number(number);
+  if (!Number.isFinite(n)) return json({ ok: false, error: "number inválido" }, 400);
 
-    const body = await req.json().catch(() => ({}));
-    const data: any = {
-      ...(typeof body?.title === "string" ? { title: body.title.trim() } : {}),
-      ...(typeof body?.content === "string" ? { content: body.content } : {}),
-      ...(typeof body?.objectives === "string" ? { objectives: body.objectives } : {}),
-      ...(typeof body?.activities === "string" ? { activities: body.activities } : {}),
-      ...(typeof body?.resources === "string" ? { resources: body.resources } : {}),
-      ...(typeof body?.bncc === "string" ? { bncc: body.bncc } : {}),
-    };
-    const updated = await prisma.lesson.update({
-      where: { classId_number: { classId: id, number: n } },
-      data,
-      select: { number: true, title: true, content: true, objectives: true, activities: true, resources: true, bncc: true },
-    });
-    return NextResponse.json(updated, { status: 200, headers: { "Cache-Control": "no-store" } });
-  } catch (e: any) {
-    if (e?.code === "P2025") return new NextResponse(null, { status: 404 });
-    console.error("[PATCH conteudos/:number]", e);
-    return NextResponse.json({ error: "Erro interno." }, { status: 500 });
-  }
+  // Preferível se existir unique composto (classId, number)
+  const item = await prisma.lesson.findFirst({
+    where: { classId: id, number: n },
+  });
+
+  return json(item);
 }
 
-export async function DELETE(_req: Request, { params }: CtxNum) {
-  try {
-    const { id, number } = await params;
-    const n = Number(number);
-    if (!id || !Number.isFinite(n)) return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
+// PATCH /api/classes/[id]/conteudos/[number]
+export async function PATCH(req: Request, ctx: { params: Promise<Params> }) {
+  const { id, number } = await ctx.params;
+  const n = Number(number);
+  if (!Number.isFinite(n)) return json({ ok: false, error: "number inválido" }, 400);
 
-    const res = await prisma.lesson.deleteMany({ where: { classId: id, number: n } });
-    if ((res?.count ?? 0) === 0) return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-    return NextResponse.json({ deleted: 1 }, { status: 200, headers: { "Cache-Control": "no-store" } });
-  } catch (e) {
-    console.error("[DELETE conteudos/:number]", e);
-    return NextResponse.json({ error: "Erro interno." }, { status: 500 });
-  }
+  const data = await req.json();
+
+  // Busca por (classId, number), depois atualiza por id (mais seguro)
+  const existing = await prisma.lesson.findFirst({
+    where: { classId: id, number: n },
+    select: { id: true },
+  });
+
+  if (!existing) return json({ ok: false, error: "Conteúdo não encontrado" }, 404);
+
+  const updated = await prisma.lesson.update({
+    where: { id: existing.id },
+    data: { ...data, classId: id },
+  });
+
+  return json(updated);
+}
+
+// DELETE /api/classes/[id]/conteudos/[number]
+export async function DELETE(_req: Request, ctx: { params: Promise<Params> }) {
+  const { id, number } = await ctx.params;
+  const n = Number(number);
+  if (!Number.isFinite(n)) return json({ ok: false, error: "number inválido" }, 400);
+
+  const existing = await prisma.lesson.findFirst({
+    where: { classId: id, number: n },
+    select: { id: true },
+  });
+
+  if (!existing) return json({ ok: false, error: "Conteúdo não encontrado" }, 404);
+
+  const deleted = await prisma.lesson.delete({
+    where: { id: existing.id },
+  });
+
+  return json(deleted);
 }

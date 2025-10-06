@@ -1,27 +1,35 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type Ctx = { params: Promise<{ id: string }> };
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function DELETE(_req: Request, { params }: Ctx) {
-  try {
-    const { id } = await params;
-    if (!id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+type Params = { id: string };
 
-    const res = await prisma.lesson.deleteMany({
-      where: { classId: id },
-    });
+function json(data: any, status = 200) {
+  return new NextResponse(JSON.stringify(data), {
+    status,
+    headers: { "cache-control": "no-store", "content-type": "application/json" },
+  });
+}
 
-    if ((res?.count ?? 0) === 0) {
-      return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
-    }
+// GET /api/classes/[id]/conteudos
+export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
+  const { id } = await ctx.params;
+  const items = await prisma.lesson.findMany({
+    where: { classId: id },
+    orderBy: [{ number: "desc" }, { createdAt: "desc" }],
+  });
+  return json(items);
+}
 
-    return NextResponse.json(
-      { deleted: res.count },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
-    );
-  } catch (err) {
-    console.error("[DELETE conteudos - bulk]", err);
-    return NextResponse.json({ error: "Erro interno." }, { status: 500 });
-  }
+// POST /api/classes/[id]/conteudos
+export async function POST(req: Request, ctx: { params: Promise<Params> }) {
+  const { id } = await ctx.params;
+  const data = await req.json();
+  // garante vínculo com a classe
+  const created = await prisma.lesson.create({
+    data: { ...data, classId: id },
+  });
+  return json(created, 201);
 }

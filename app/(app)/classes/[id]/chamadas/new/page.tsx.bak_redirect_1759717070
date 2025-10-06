@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 'use client';
 
 import Link from "next/link";
@@ -22,9 +21,7 @@ type CallRecord = {
 function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
 
-export default function CallNewPage({
-  const router = useRouter();
- params }: { params: Promise<{ id: string }> }) {
+export default function CallNewPage({ params }: { params: Promise<{ id: string }> }) {
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [presentMap, setPresentMap] = useState<Record<string, boolean>>({});
@@ -170,13 +167,11 @@ export default function CallNewPage({
         attendance,
       };
       localStorage.setItem(lsKeyCalls(classId), JSON.stringify([tempCall, ...calls]));
-  router.push(`/classes/${classId}/chamadas`);
     } catch {}
 
     // tenta API
     try {
-      
-    const r = await fetch(`/api/classes/${classId}/chamadas`, {
+      const r = await fetch(`/api/classes/${classId}/chamadas`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
@@ -184,26 +179,6 @@ export default function CallNewPage({
       });
       if (r.ok) {
         const created: CallRecord = await r.json();
-    q{
-      try {
-        const created: any = await r.json();
-        // salva otimista no localStorage da lista
-        const key = lsKeyCalls(classId);
-        const list = JSON.parse(localStorage.getItem(key) || "[]");
-        const rec = {
-          id: created?.id ?? crypto.randomUUID(),
-          classId,
-          title,
-          content,
-          number: created?.number ?? undefined,
-          createdAt: created?.createdAt ?? new Date().toISOString(),
-        };
-        localStorage.setItem(key, JSON.stringify([rec, ...list]));
-      } catch {}
-      // vai para a lista de chamadas
-      router.push(`/classes//chamadas`);
-    }
-  
         // substituir o temp pelo criado (id/number reais)
         try {
           const calls: CallRecord[] = JSON.parse(localStorage.getItem(lsKeyCalls(classId)) || "[]");

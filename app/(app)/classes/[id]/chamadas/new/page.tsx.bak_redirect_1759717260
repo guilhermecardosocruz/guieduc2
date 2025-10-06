@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 'use client';
 
 import Link from "next/link";
@@ -22,9 +21,7 @@ type CallRecord = {
 function lsKeyStudents(classId: string) { return `guieduc:class:${classId}:students`; }
 function lsKeyCalls(classId: string) { return `guieduc:class:${classId}:calls`; }
 
-export default function CallNewPage({
-  const router = useRouter();
- params }: { params: Promise<{ id: string }> }) {
+export default function CallNewPage({ params }: { params: Promise<{ id: string }> }) {
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [presentMap, setPresentMap] = useState<Record<string, boolean>>({});
@@ -170,7 +167,6 @@ export default function CallNewPage({
         attendance,
       };
       localStorage.setItem(lsKeyCalls(classId), JSON.stringify([tempCall, ...calls]));
-  router.push(`/classes/${classId}/chamadas`);
     } catch {}
 
     // tenta API

@@ -9,38 +9,49 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  name      String?
+  name      String // no banco está NOT NULL
   email     String   @unique
-  password  String
+  password  String   @map("passwordHash") // coluna real é passwordHash
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model ClassGroup {
-  id        String   @id @default(cuid())
+  id        String              @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  classes   Class[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  classes   ClassGroupOnClass[]
 }
 
 model Class {
-  id          String       @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
-  groupId     String?
-  group       ClassGroup?  @relation(fields: [groupId], references: [id])
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   students    Student[]
   lessons     Lesson[]
   attendances Attendance[]
+  groups      ClassGroupOnClass[]
+}
+
+model ClassGroupOnClass {
+  classId    String
+  groupId    String
+  assignedAt DateTime @default(now())
+
+  class Class      @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  group ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([classId, groupId])
+  @@index([groupId])
 }
 
 model Student {
   id          String       @id @default(cuid())
-  classId     String
-  class       Class        @relation(fields: [classId], references: [id])
   name        String
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   cpf         String?
   contact     String?
   createdAt   DateTime     @default(now())
@@ -51,13 +62,13 @@ model Student {
 model Lesson {
   id              String       @id @default(cuid())
   classId         String
-  class           Class        @relation(fields: [classId], references: [id])
-  number          Int
-  title           String?
+  class           Class        @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  number          Int? // existe unique (classId, number), pode iniciar nulo até setar
+  title           String
   content         String?
-  objetivos       String?
-  desenvolvimento String?
-  recursos        String?
+  objetivos       String?      @map("objectives") // mapeia para coluna objectives
+  recursos        String?      @map("resources") // mapeia para coluna resources
+  desenvolvimento String?      @map("activities") // mapeia para coluna activities
   bncc            String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -69,13 +80,13 @@ model Lesson {
 model Attendance {
   id      String @id @default(cuid())
   classId String
-  class   Class  @relation(fields: [classId], references: [id])
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   lessonId String?
-  lesson   Lesson? @relation("LessonAttendances", fields: [lessonId], references: [id])
+  lesson   Lesson? @relation("LessonAttendances", fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   studentId String
-  student   Student @relation("StudentAttendances", fields: [studentId], references: [id])
+  student   Student @relation("StudentAttendances", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   present   Boolean  @default(false)
   createdAt DateTime @default(now())

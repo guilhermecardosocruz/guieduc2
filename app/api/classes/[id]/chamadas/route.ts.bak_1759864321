@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const items = await prisma.lesson.findMany({ where: { classId: params.id } });
+  const items = await prisma.chamada.findMany({ where: { classId: params.id } });
   return NextResponse.json({ ok: true, items });
 }
 
@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const body = await req.json();
   // exemplo de escrita transacional
   const result = await prisma.$transaction(async (tx) => {
-    const chamada = await tx.lesson.create({
+    const chamada = await tx.chamada.create({
       data: { classId: params.id, ...body },
     });
     return chamada;

@@ -34,7 +34,6 @@
     "autoprefixer": "^10.4.20",
     "babel-loader": "^10.0.0",
     "postcss": "^8.4.47",
-    "prettier": "^3.6.2",
     "prisma": "^6.16.3",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.6.3"
@@ -46,12 +45,5 @@
       "@prisma/engines",
       "sharp"
     ]
-  },
-  "engines": {
-    "node": ">=20.11.0"
-  },
-  "packageManager": "pnpm@9.10.0",
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write --ignore-unknown"
   }
 }

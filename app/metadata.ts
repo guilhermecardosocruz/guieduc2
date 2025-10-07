@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "GUIEDUC2",
   description: "Acesso e gerenciamento educacional",
-  themeColor: "#0A66FF",
   manifest: "/manifest.json",
   icons: [
     { rel: "icon", url: "/icons/icon-192.png" },
@@ -14,5 +13,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "GUIEDUC2"
+  },
+  openGraph: {
+    title: "GUIEDUC2",
+    type: "website"
   }
 };

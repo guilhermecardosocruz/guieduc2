@@ -1,17 +1,19 @@
-/* @ts-nocheck */
 import { prisma } from '@/lib/prisma';
 import DeleteStudentButton from '@/components/DeleteStudentButton';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function Page({ params }: { params: { id: string } }) {
+export default async function Page({ params }: { params: { id: string; callId: string } }) {
   const { id: classId } = await params;
+  const { callId } = await params; const call = await prisma.lesson.findUnique({ where: { id: callId } });
+  if (!call) return <div className="p-4">Chamada não encontrada.</div>;
+
   const students = await prisma.student.findMany({ where: { classId }, orderBy: { createdAt: 'asc' } });
 
   return (
     <div className="p-4 space-y-6">
-      <h1 className="text-xl font-semibold">Nova chamada</h1>
+      <h1 className="text-xl font-semibold">Editar chamada #{call.number ?? ''}</h1>
 
       <div className="rounded border">
         <div className="grid grid-cols-1 divide-y">

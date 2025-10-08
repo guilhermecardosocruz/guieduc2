@@ -32,7 +32,7 @@ function LoginInner() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j?.error || "Credenciais inválidas");
-      router.push("/dashboard");
+      if (res && res.ok) { router.replace("/dashboard"); return; };
     } catch (e:any) {
       setErr(e.message || "Erro ao entrar");
     } finally { setLoading(false); }

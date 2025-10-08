@@ -1,4 +1,3 @@
-// decide landing pelo cookie (SSR)
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 

@@ -1,28 +1,27 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/crypto";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
-  const { name, email, password } = await req.json();
+  try {
+    const body = await req.json().catch(() => ({}));
+    const email = String(body?.email ?? "").trim().toLowerCase();
+    const name = String(body?.name ?? "").trim() || "Usuário";
+    const password = String(body?.password ?? "");
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "E-mail e senha são obrigatórios" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
+    }
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return NextResponse.json({ ok: false, error: "email_in_use" }, { status: 409 });
+
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.user.create({ data: { email, name, password: hash } });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    console.error("[auth/register] error:", e?.message);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
-
-  const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) {
-    return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
-  }
-
-  const hashed = await hashPassword(password);
-
-  const created = await prisma.user.create({
-    data: { name, email, password: hashed },
-    select: { id: true, name: true, email: true, createdAt: true },
-  });
-
-  return NextResponse.json(created, { status: 201, headers: { "cache-control": "no-store" } });
 }

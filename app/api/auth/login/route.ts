@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
     }
 
-    // suporta contas antigas sem hash (faz rehash na 1ª vez)
+    // aceita contas antigas em plaintext e re-hash na primeira vez
     let ok = false;
     if (user.password.startsWith("$2")) {
       ok = await bcrypt.compare(password, user.password);
@@ -30,10 +30,7 @@ export async function POST(req: Request) {
         await prisma.user.update({ where: { id: user.id }, data: { password: newHash } });
       }
     }
-
-    if (!ok) {
-      return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
-    }
+    if (!ok) return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
 
     const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET || "devsecret";
     const token = jwt.sign({ sub: user.id, email: user.email }, secret, { expiresIn: "7d" });

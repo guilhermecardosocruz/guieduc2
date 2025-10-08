@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-// POST /api/classes/[id]/chamadas -> cria UMA nova chamada gerando um registro por aluno
+// POST /api/classes/[id]/chamadas -> cria registros por aluno (mínimo: classId + studentId)
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   try {
     const classId = params.id;
@@ -33,12 +33,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       );
     }
 
-    // 2) criar presenças (um registro por aluno)
+    // 2) cria um registro por aluno (só campos obrigatórios)
     const data = students.map((s) => ({
       classId,
       studentId: s.id,
-      // se seu schema tiver 'present' com default, pode omitir:
-      present: false as any
     }));
 
     const result = await prisma.attendance.createMany({

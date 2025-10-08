@@ -1,23 +1,16 @@
-/* @ts-nocheck */
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+// GET /api/classes/[id]/chamadas -> lista registros de Attendance dessa turma
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const items = await prisma.lesson.findMany({ where: { classId: params.id } });
-  return NextResponse.json({ ok: true, items });
-}
-
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ ok: false, error: "No DB configured" }, { status: 500 });
-  }
-  const body = await req.json();
-  // exemplo de escrita transacional
-  const result = await prisma.$transaction(async (tx) => {
-    const chamada = await tx.lesson.create({
-      data: { classId: params.id, ...body },
+  try {
+    const items = await prisma.attendance.findMany({
+      where: { classId: params.id },
+      orderBy: { createdAt: "desc" }
     });
-    return chamada;
-  });
-  return NextResponse.json({ ok: true, item: result }, { status: 201 });
+    return NextResponse.json({ ok: true, items });
+  } catch (e: any) {
+    console.error("[chamadas][GET] error:", e?.message);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+  }
 }

@@ -4,11 +4,15 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import * as jwt from "jsonwebtoken";
 
+function cleanse(s: string) {
+  return s.normalize("NFC").replace(/[\u00A0\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const email = String(body?.email ?? "").trim().toLowerCase();
-    const password = String(body?.password ?? "");
+    const email = cleanse(String(body?.email ?? "")).toLowerCase();
+    const password = cleanse(String(body?.password ?? ""));
 
     if (!email || !password) {
       return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
@@ -19,17 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
     }
 
-    // aceita contas antigas em plaintext e re-hash na primeira vez
-    let ok = false;
-    if (user.password.startsWith("$2")) {
-      ok = await bcrypt.compare(password, user.password);
-    } else {
-      ok = user.password === password;
-      if (ok) {
-        const newHash = await bcrypt.hash(password, 10);
-        await prisma.user.update({ where: { id: user.id }, data: { password: newHash } });
-      }
-    }
+    const ok = await bcrypt.compare(password, user.password);
     if (!ok) return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
 
     const secret = process.env.JWT_SECRET || process.env.AUTH_SECRET || "devsecret";

@@ -2,31 +2,28 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import * as jwt from "jsonwebtoken";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const emailRaw = String(body?.email ?? "").trim();
+    const email = String(body?.email ?? "").trim().toLowerCase();
     const password = String(body?.password ?? "");
 
-    if (!emailRaw || !password) {
+    if (!email || !password) {
       return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
     }
-
-    const email = emailRaw.toLowerCase();
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.password) {
       return NextResponse.json({ ok: false, error: "invalid_credentials" }, { status: 401 });
     }
 
-    // Suporta contas antigas SEM hash (migração automática 1x)
+    // suporta contas antigas sem hash (faz rehash na 1ª vez)
     let ok = false;
     if (user.password.startsWith("$2")) {
       ok = await bcrypt.compare(password, user.password);
     } else {
-      // senha antiga em claro
       ok = user.password === password;
       if (ok) {
         const newHash = await bcrypt.hash(password, 10);

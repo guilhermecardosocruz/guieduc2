@@ -1,30 +1,55 @@
-/* @ts-nocheck */
-import { prisma } from '@/lib/prisma';
-import DeleteStudentButton from '@/components/DeleteStudentButton';
+"use client";
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 
-export default async function Page({ params }: { params: { id: string } }) {
-  const { id: classId } = await params;
-  const students = await prisma.student.findMany({ where: { classId }, orderBy: { createdAt: 'asc' } });
+export default function NewCallPage() {
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function onCreate() {
+    try {
+      setLoading(true);
+      setErr(null);
+      const res = await fetch(`/api/classes/${params.id}/chamadas`, { method: "POST" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "server_error");
+      }
+      // após criar, volta pra lista de chamadas da turma
+      router.replace(`/classes/${params.id}/chamadas`);
+    } catch (e: any) {
+      setErr(e?.message || "Erro ao criar chamada");
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-xl font-semibold">Nova chamada</h1>
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-semibold mb-2">Nova chamada</h1>
+      <p className="text-sm text-gray-600 mb-6">
+        Isso cria um registro de chamada para a turma atual. Você poderá marcar presenças depois.
+      </p>
 
-      <div className="rounded border">
-        <div className="grid grid-cols-1 divide-y">
-          {students.map(s => (
-            <div key={s.id} className="flex items-center justify-between p-3">
-              <span>{s.name}</span>
-              <DeleteStudentButton studentId={s.id} label="Excluir" />
-            </div>
-          ))}
-          {students.length === 0 && (
-            <div className="p-3 text-sm text-neutral-600">Nenhum aluno nesta turma.</div>
-          )}
-        </div>
+      <button
+        disabled={loading}
+        onClick={onCreate}
+        className="rounded-xl px-5 py-3 bg-blue-600 text-white disabled:opacity-50"
+      >
+        {loading ? "Criando..." : "Criar chamada agora"}
+      </button>
+
+      {err && <p className="mt-4 text-red-600 text-sm">{err}</p>}
+
+      <div className="mt-6">
+        <button
+          onClick={() => router.back()}
+          className="text-sm underline"
+        >
+          Voltar
+        </button>
       </div>
     </div>
   );

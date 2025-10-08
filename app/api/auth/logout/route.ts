@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
-import { authCookieName } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true }, { status: 200 });
-  res.cookies.set(authCookieName(), '', { httpOnly: true, path: '/', maxAge: 0 });
-  return res;
+  // apaga o cookie (nome deve bater com o usado no login)
+  (await cookies()).set("token", "", { path: "/", maxAge: 0 });
+  return NextResponse.json({ ok: true });
 }
